@@ -1,4 +1,3 @@
-use crate::constants;
 use clap::{Parser, Subcommand};
 
 #[derive(Parser)]
@@ -7,10 +6,7 @@ use clap::{Parser, Subcommand};
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
-    #[arg(
-        long,
-        default_value = constants::DEFAULT_INSTALL_DIR,
-    )]
+    #[arg(long)]
     /// "The base directory to install different versions of osu!"
     pub install_dir: Option<String>,
 }

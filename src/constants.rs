@@ -7,4 +7,3 @@ pub const GITHUB_ICON_URL: &str =
     "https://raw.githubusercontent.com/ppy/osu/master/assets/lazer-nuget.png";
 
 pub const TEMP_DIR: &str = "/var/tmp/osu_helper_script";
-pub const DEFAULT_INSTALL_DIR: &str = "~/.local/share/games/osu!/";

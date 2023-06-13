@@ -2,7 +2,7 @@ use inquire::Select;
 use std::{
     fs::{self, Permissions},
     os::unix::prelude::PermissionsExt,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 use crate::{
@@ -12,10 +12,31 @@ use crate::{
 };
 
 pub fn install(
-    home_dir: PathBuf,
-    install_dir: String,
+    local_data_dir: PathBuf,
+    install_dir: PathBuf,
     version: Option<String>,
 ) -> anyhow::Result<()> {
+    let installed_versions = fs::read_dir(&install_dir)?
+        .filter_map(|entry| {
+            let entry = entry.ok()?;
+            let path = entry.path();
+
+            if path.is_dir() {
+                return None;
+            }
+
+            let file_same = path
+                .file_name()
+                .map(|name| name.to_string_lossy().to_string())?;
+
+            if file_same.ends_with(".AppImage") {
+                Some(file_same.replace(".AppImage", ""))
+            } else {
+                None
+            }
+        })
+        .collect::<Vec<String>>();
+
     let version = match version {
         Some(version) => {
             let en = if version.to_lowercase() == "latest" {
@@ -41,11 +62,10 @@ pub fn install(
         }
         None => {
             let releases = github::get_releases()?;
-
-            // TODO: Filter out already installed versions
             let release_tags = releases
                 .iter()
                 .map(|release| release.tag_name.clone())
+                .filter(|tag| !installed_versions.contains(tag))
                 .collect::<Vec<String>>();
 
             match Select::new("Choose a version to download!", release_tags).prompt() {
@@ -92,24 +112,27 @@ pub fn install(
     }
 
     let file_buffer = download_file_with_progress(response.into_reader(), server_size)?;
+
     let app_image_file_name = format!("{}.AppImage", &version.tag_name);
     let desktop_file_name = format!("osu!-{}.desktop", &version.tag_name);
 
-    let install_dir_str = install_dir.replace('~', home_dir.to_str().unwrap());
-    let desktop_dir_str = format!("{}/.local/share/applications", home_dir.to_str().unwrap());
-    let tmp_file_path_str = format!("{}/{}", TEMP_DIR, &app_image_file_name);
-    let source_file_path_str = format!("{}/{}", &install_dir_str, &app_image_file_name);
-    let source_desktop_path_str = format!("{}/{}", &desktop_dir_str, &desktop_file_name);
-    let source_icon_path_str = format!("{}/osu.png", &install_dir_str);
+    let desktop_dir = local_data_dir.join("applications");
+    let source_desktop_path = desktop_dir.join(desktop_file_name);
 
-    let install_dir = Path::new(&install_dir_str);
-    let tmp_file_path = Path::new(&tmp_file_path_str);
-    let source_file_path = Path::new(&source_file_path_str);
-    let source_desktop_path = Path::new(&source_desktop_path_str);
-    let source_icon_path = Path::new(&source_icon_path_str);
+    let tmp_file_path = PathBuf::from(format!("{}/{}", TEMP_DIR, &app_image_file_name));
+    let source_file_path = install_dir.join(&app_image_file_name);
+    let source_icon_path = install_dir.join("osu.png");
 
     match fs::create_dir_all(TEMP_DIR) {
-        Ok(_) => fs::write(tmp_file_path, file_buffer)?,
+        Ok(_) => {
+            if let Err(e) = fs::write(&tmp_file_path, file_buffer) {
+                eprintln!(
+                    "Couldn't write the downloaded file to the temporary directory: {:#?}",
+                    e
+                );
+                std::process::exit(1);
+            }
+        }
         Err(e) => {
             eprintln!("Couldn't create temporary directory at: {:#?}", e);
             std::process::exit(1);
@@ -117,34 +140,22 @@ pub fn install(
     }
 
     if !install_dir.exists() {
-        match fs::create_dir_all(install_dir) {
-            Ok(_) => {}
-            Err(e) => {
-                eprintln!(
-                    "Couldn't create the install directory at: {:#?}\n{:#?}",
-                    &install_dir_str, e
-                );
-                std::process::exit(1);
-            }
+        if let Err(e) = fs::create_dir_all(&install_dir) {
+            eprintln!(
+                "Couldn't create the install directory at: {:#?}\n{:#?}",
+                &install_dir.display(),
+                e
+            );
+            std::process::exit(1);
         }
     }
 
-    // TODO: MD5 checksum verification.
-    // Currently, there's no way to get the MD5 checksum of the asset from GitHub.
-    //
-    // let local_md5 = md5::compute(file_buffer);
-    // if format!("{:x}", local_md5) != server_md5 {
-    //     eprintln!("The MD5 checksum of the downloaded file doesn't match the checksum of the asset on GitHub.");
-    //     eprintln!("Expected: {:#?}\nResult: {:#?}", server_md5, local_md5);
-    //     eprintln!("The file is downloaded to {:#?}, but cannot guarantee whether it's tempered/corrupted or not.", &tmp_file_path);
-    //     std::process::exit(1);
-    // }
-
-    match fs::rename(tmp_file_path, source_file_path) {
+    match fs::rename(tmp_file_path, &source_file_path) {
         Ok(_) => {
             println!(
-                "Successfully installed {} to {}!",
-                &version.tag_name, &install_dir_str
+                "Successfully installed {} to {}",
+                &version.tag_name,
+                &install_dir.display()
             );
         }
         Err(e) => {
@@ -156,13 +167,18 @@ pub fn install(
         }
     }
 
-    // set executable permission to source_file_path
-    fs::set_permissions(source_file_path, Permissions::from_mode(0o755))?;
+    if let Err(e) = fs::set_permissions(&source_file_path, Permissions::from_mode(0o755)) {
+        eprintln!(
+            "Couldn't set executable permissions to the downloaded file: {:#?}",
+            e
+        );
+        std::process::exit(1);
+    }
 
     if !source_icon_path.exists() {
         match github::get_icon() {
             Ok(icon) => {
-                if let Err(e) = fs::write(source_icon_path, icon) {
+                if let Err(e) = fs::write(&source_icon_path, icon) {
                     eprintln!(
                         "Couldn't write the icon to the specified directory: {:#?}",
                         e
@@ -190,7 +206,7 @@ pub fn install(
         exec_dir = source_file_path.canonicalize().unwrap().to_str().unwrap(),
     );
 
-    match fs::write(source_desktop_path, desktop_entry_content) {
+    match fs::write(&source_desktop_path, desktop_entry_content) {
         Ok(_) => {
             println!(
                 "Successfully created the desktop entry at {}!",
