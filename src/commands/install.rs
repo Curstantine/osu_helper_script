@@ -182,8 +182,8 @@ pub fn install(
     \r\rIcon={icon_dir}
     \r\rComment=rhythm is just a *click* away!
     \r\rExec={exec_dir}
-    \r\rVersion={version}
-    \r\rType=Game
+    \r\rVersion=1.0
+    \r\rType=Application
     \r\rCategories=Game;",
         version = &version.tag_name,
         icon_dir = source_icon_path.canonicalize().unwrap().to_str().unwrap(),
