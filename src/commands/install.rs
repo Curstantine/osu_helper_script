@@ -193,14 +193,14 @@ pub fn install(
     }
 
     let desktop_entry_content = format!(
-        "[Desktop Entry]
-    \r\rName=osu! {version}
-    \r\rIcon={icon_dir}
-    \r\rComment=rhythm is just a *click* away!
-    \r\rExec={exec_dir}
-    \r\rVersion=1.0
-    \r\rType=Application
-    \r\rCategories=Game;",
+        "[Desktop Entry]\n\
+        Name=osu! {version}\n\
+        Icon={icon_dir}\n\
+        Comment=rhythm is just a *click* away!\n\
+        Exec={exec_dir}\n\
+        Version=1.0\n\
+        Type=Application\n\
+        Categories=Game;",
         version = &version.tag_name,
         icon_dir = source_icon_path.canonicalize().unwrap().to_str().unwrap(),
         exec_dir = source_file_path.canonicalize().unwrap().to_str().unwrap(),

@@ -1,0 +1,47 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'osu_helper_script'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=osu_helper_script",
+                    "--package=osu_helper_script",
+                ],
+                "filter": {
+                    "name": "osu_helper_script",
+                    "kind": "bin"
+                }
+            },
+            "args": [
+                "install"
+            ],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'osu_helper_script'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=osu_helper_script",
+                    "--package=osu_helper_script"
+                ],
+                "filter": {
+                    "name": "osu_helper_script",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
