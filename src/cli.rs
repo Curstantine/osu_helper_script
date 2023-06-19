@@ -18,5 +18,8 @@ pub enum Commands {
     /// Uninstall a specified version of osu!
     Uninstall,
     /// Update osu! to the latest version
-    Update,
+    Update {
+        /// Don't ask for confirmation before updating
+        no_confirm: Option<bool>,
+    },
 }

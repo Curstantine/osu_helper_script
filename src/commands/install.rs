@@ -7,7 +7,7 @@ use std::{
 
 use crate::{
     constants::{TEMP_DIR, USER_AGENT},
-    github,
+    github, local,
     ureq::{box_request, download_file_with_progress},
 };
 
@@ -16,27 +16,7 @@ pub fn install(
     install_dir: PathBuf,
     version: Option<String>,
 ) -> anyhow::Result<()> {
-    let installed_versions = fs::read_dir(&install_dir)?
-        .filter_map(|entry| {
-            let entry = entry.ok()?;
-            let path = entry.path();
-
-            if path.is_dir() {
-                return None;
-            }
-
-            let file_same = path
-                .file_name()
-                .map(|name| name.to_string_lossy().to_string())?;
-
-            if file_same.ends_with(".AppImage") {
-                Some(file_same.replace(".AppImage", ""))
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<String>>();
-
+    let installed_versions = local::get_local_release_tags(&install_dir)?;
     let version = match version {
         Some(version) => {
             let en = if version.to_lowercase() == "latest" {
