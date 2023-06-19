@@ -6,9 +6,10 @@ use cli::{Cli, Commands};
 mod cli;
 mod commands;
 mod constants;
+mod errors;
 mod github;
-mod ureq;
 mod local;
+mod ureq;
 
 fn main() {
     if !cfg!(target_os = "linux") {
@@ -42,7 +43,9 @@ fn main() {
             osu_version: version,
         } => commands::install(local_data_dir, install_dir, version),
         Commands::Uninstall => unimplemented!(),
-        Commands::Update { no_confirm } => commands::update(local_data_dir, install_dir, no_confirm),
+        Commands::Update { no_confirm } => {
+            commands::update(local_data_dir, install_dir, no_confirm)
+        }
     };
 
     run.unwrap();

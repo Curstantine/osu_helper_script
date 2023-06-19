@@ -7,7 +7,8 @@ use std::{
 
 use crate::{
     constants::{TEMP_DIR, USER_AGENT},
-    github, local,
+    github,
+    local::{self, download_release_asset, initialize_binary},
     ureq::{box_request, download_file_with_progress},
 };
 
@@ -73,134 +74,17 @@ pub fn install(
         }
     };
 
-    let response = box_request(
-        ureq::get(&app_image_asset.browser_download_url)
-            .set("Accept", "application/octet-stream")
-            .set("User-Agent", USER_AGENT),
-    )?;
+    let download_buffer = match download_release_asset(&app_image_asset) {
+        Ok(buffer) => buffer,
+        Err(e) => panic!("Couldn't download the AppImage asset:\n {:#?}", e),
+    };
 
-    let server_size = response
-        .header("content-length")
-        .and_then(|size| size.parse::<u64>().ok())
-        .unwrap_or(0);
-
-    if server_size != app_image_asset.size {
-        eprintln!(
-            "The file size of the downloadable file doesn't match the size of the asset on GitHub."
-        );
-        std::process::exit(1);
-    }
-
-    let file_buffer = download_file_with_progress(response.into_reader(), server_size)?;
-
-    let app_image_file_name = format!("{}.AppImage", &version.tag_name);
-    let desktop_file_name = format!("osu!-{}.desktop", &version.tag_name);
-
-    let desktop_dir = local_data_dir.join("applications");
-    let source_desktop_path = desktop_dir.join(desktop_file_name);
-
-    let tmp_file_path = PathBuf::from(format!("{}/{}", TEMP_DIR, &app_image_file_name));
-    let source_file_path = install_dir.join(&app_image_file_name);
-    let source_icon_path = install_dir.join("osu.png");
-
-    match fs::create_dir_all(TEMP_DIR) {
-        Ok(_) => {
-            if let Err(e) = fs::write(&tmp_file_path, file_buffer) {
-                eprintln!(
-                    "Couldn't write the downloaded file to the temporary directory: {:#?}",
-                    e
-                );
-                std::process::exit(1);
-            }
-        }
-        Err(e) => {
-            eprintln!("Couldn't create temporary directory at: {:#?}", e);
-            std::process::exit(1);
-        }
-    }
-
-    if !install_dir.exists() {
-        if let Err(e) = fs::create_dir_all(&install_dir) {
-            eprintln!(
-                "Couldn't create the install directory at: {:#?}\n{:#?}",
-                &install_dir.display(),
-                e
-            );
-            std::process::exit(1);
-        }
-    }
-
-    match fs::rename(tmp_file_path, &source_file_path) {
-        Ok(_) => {
-            println!(
-                "Successfully installed {} to {}",
-                &version.tag_name,
-                &install_dir.display()
-            );
-        }
-        Err(e) => {
-            eprintln!(
-                "Couldn't move the downloaded file to the install directory: {:#?}",
-                e
-            );
-            std::process::exit(1);
-        }
-    }
-
-    if let Err(e) = fs::set_permissions(&source_file_path, Permissions::from_mode(0o755)) {
-        eprintln!(
-            "Couldn't set executable permissions to the downloaded file: {:#?}",
-            e
-        );
-        std::process::exit(1);
-    }
-
-    if !source_icon_path.exists() {
-        match github::get_icon() {
-            Ok(icon) => {
-                if let Err(e) = fs::write(&source_icon_path, icon) {
-                    eprintln!(
-                        "Couldn't write the icon to the specified directory: {:#?}",
-                        e
-                    );
-                }
-            }
-            Err(e) => {
-                eprintln!("Couldn't download the icon: {:#?}", e);
-                std::process::exit(1);
-            }
-        };
-    }
-
-    let desktop_entry_content = format!(
-        "[Desktop Entry]\n\
-        Name=osu! {version}\n\
-        Icon={icon_dir}\n\
-        Comment=rhythm is just a *click* away!\n\
-        Exec={exec_dir}\n\
-        Version=1.0\n\
-        Type=Application\n\
-        Categories=Game;",
-        version = &version.tag_name,
-        icon_dir = source_icon_path.canonicalize().unwrap().to_str().unwrap(),
-        exec_dir = source_file_path.canonicalize().unwrap().to_str().unwrap(),
+    initialize_binary(
+        &local_data_dir,
+        &install_dir,
+        &version.tag_name,
+        download_buffer,
     );
-
-    match fs::write(&source_desktop_path, desktop_entry_content) {
-        Ok(_) => {
-            println!(
-                "Successfully created the desktop entry at {}!",
-                source_desktop_path.to_str().unwrap()
-            );
-        }
-        Err(e) => {
-            eprintln!("Couldn't create the desktop entry: {:#?}", e);
-            std::process::exit(1);
-        }
-    }
-
-    println!("Cleaning up temporary files...");
-    fs::remove_dir_all(TEMP_DIR)?;
 
     println!("Successfully installed osu! {}!", version.tag_name);
 
