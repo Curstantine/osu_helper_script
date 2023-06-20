@@ -20,6 +20,7 @@ pub enum Commands {
     /// Update osu! to the latest version
     Update {
         /// Don't ask for confirmation before updating
+        #[arg(long)]
         no_confirm: Option<bool>,
     },
 }
