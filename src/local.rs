@@ -101,8 +101,10 @@ pub fn download_release_asset(asset: &GithubReleaseAsset) -> Result<Vec<u8>, cra
     )?)
 }
 
-pub fn update_desktop_database() {
+pub fn update_desktop_database(local_data_dir: &Path) {
+    let desktop_dir = local_data_dir.join("applications").canonicalize().unwrap();
     let output = std::process::Command::new("update-desktop-database")
+        .arg(desktop_dir.to_str().unwrap())
         .output()
         .expect("Failed to execute update-desktop-database");
 
@@ -211,11 +213,11 @@ pub fn initialize_binary(
             .unwrap(),
     );
 
-    match fs::write(&install_data.install_path, desktop_entry_content) {
+    match fs::write(&install_data.desktop_entry_path, desktop_entry_content) {
         Ok(_) => {
             println!(
                 "Successfully created the desktop entry at {}!",
-                &install_data.install_path.to_str().unwrap()
+                &install_data.desktop_entry_path.to_str().unwrap()
             );
         }
         Err(e) => {
@@ -225,6 +227,9 @@ pub fn initialize_binary(
 
     println!("Cleaning up temporary files...");
     fs::remove_dir_all(TEMP_DIR).unwrap();
+
+    println!("Updating the desktop database...");
+    update_desktop_database(local_data_dir);
 }
 
 /// Removes the binary and the desktop entry from their respective directories.
@@ -243,6 +248,9 @@ pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, release_tag_name
         Ok(_) => println!("Removed the {} desktop entry.", release_tag_name),
         Err(e) => panic!("Couldn't remove the desktop entry:\n{:#?}", e),
     }
+
+    println!("Updating the desktop database...");
+    update_desktop_database(local_data_dir);
 }
 
 #[derive(Debug)]

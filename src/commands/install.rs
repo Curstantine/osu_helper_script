@@ -68,7 +68,6 @@ pub fn install(
         &release.tag_name,
         download_buffer,
     );
-    local::update_desktop_database();
 
     println!("Successfully installed osu! {}!", release.tag_name);
     Ok(())

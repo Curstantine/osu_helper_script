@@ -23,16 +23,16 @@ pub fn update(
     let latest_release = github::get_latest_release()?;
 
     match local::cmp_version_tag_ltr(latest_local_tag, &latest_release.tag_name) {
-        Ordering::Less => {
+        Ordering::Less | Ordering::Equal => {
             println!(
                 "An update is available! {} -> {}",
                 installed_tags[0], &latest_release.tag_name
             );
         }
-        Ordering::Equal => {
-            println!("You're already on the latest version!");
-            std::process::exit(0);
-        }
+        // Ordering::Equal => {
+        //     println!("You're already on the latest version!");
+        //     std::process::exit(0);
+        // }
         Ordering::Greater => {
             panic!(
                 "LOL! You're on a newer version than the latest release!\n\
@@ -72,7 +72,6 @@ pub fn update(
     );
 
     local::remove_binary(&local_data_dir, &install_dir, latest_local_tag);
-    local::update_desktop_database();
 
     println!("Successfully updated to {}!", &latest_release.tag_name);
     Ok(())
