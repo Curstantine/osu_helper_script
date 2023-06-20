@@ -1,6 +1,5 @@
-use std::{cmp::Ordering, path::PathBuf};
-
 use inquire::Confirm;
+use std::{cmp::Ordering, path::PathBuf};
 
 use crate::{github, local};
 

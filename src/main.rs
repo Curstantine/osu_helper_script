@@ -9,7 +9,7 @@ mod constants;
 mod errors;
 mod github;
 mod local;
-mod ureq;
+mod net;
 
 fn main() {
     if !cfg!(target_os = "linux") {

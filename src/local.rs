@@ -3,9 +3,11 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
-use crate::constants::{TEMP_DIR, USER_AGENT};
-use crate::github::{self, GithubReleaseAsset};
-use crate::ureq::{box_request, download_file_with_progress};
+use crate::{
+    constants::{TEMP_DIR, USER_AGENT},
+    github::{self, GithubReleaseAsset},
+    net,
+};
 
 /// Lists all the releases available in the install_dir.
 ///
@@ -75,7 +77,7 @@ pub fn cmp_version_tag_ltr(left: &str, right: &str) -> std::cmp::Ordering {
 ///
 /// Internally, this requests the asset, and then streams the response into a Vec<u8>.
 pub fn download_release_asset(asset: &GithubReleaseAsset) -> Result<Vec<u8>, crate::errors::Error> {
-    let response = box_request(
+    let response = net::box_request(
         ureq::get(&asset.browser_download_url)
             .set("Accept", "application/octet-stream")
             .set("User-Agent", USER_AGENT),
@@ -93,7 +95,7 @@ pub fn download_release_asset(asset: &GithubReleaseAsset) -> Result<Vec<u8>, cra
         std::process::exit(1);
     }
 
-    Ok(download_file_with_progress(
+    Ok(net::download_file_with_progress(
         response.into_reader(),
         server_size,
     )?)
