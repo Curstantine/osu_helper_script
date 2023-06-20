@@ -125,14 +125,8 @@ pub fn initialize_binary(
     release_tag_name: &str,
     download_buffer: Vec<u8>,
 ) {
-    let desktop_dir = local_data_dir.join("applications");
-
-    let app_image_file_name = format!("{}.AppImage", release_tag_name);
-    let desktop_file_name = format!("osu!-{}.desktop", release_tag_name);
-    let tmp_file_path = PathBuf::from(format!("{}/{}", TEMP_DIR, &app_image_file_name));
-
-    let source_desktop_path = desktop_dir.join(desktop_file_name);
-    let source_file_path = install_dir.join(&app_image_file_name);
+    let install_data = InstallData::new(local_data_dir, install_dir, release_tag_name);
+    let tmp_file_path = install_data.get_temp_file_path();
     let source_icon_path = install_dir.join("osu.png");
 
     match fs::create_dir_all(TEMP_DIR) {
@@ -159,7 +153,7 @@ pub fn initialize_binary(
         }
     }
 
-    match fs::rename(tmp_file_path, &source_file_path) {
+    match fs::rename(tmp_file_path, &install_data.install_path) {
         Ok(_) => {
             println!(
                 "Successfully installed {} to {}",
@@ -175,7 +169,7 @@ pub fn initialize_binary(
         }
     }
 
-    if let Err(e) = fs::set_permissions(&source_file_path, Permissions::from_mode(0o755)) {
+    if let Err(e) = fs::set_permissions(&install_data.install_path, Permissions::from_mode(0o755)) {
         panic!(
             "Couldn't set executable permissions to the downloaded file: {:#?}",
             e
@@ -209,14 +203,19 @@ pub fn initialize_binary(
         Categories=Game;",
         version = release_tag_name,
         icon_dir = source_icon_path.canonicalize().unwrap().to_str().unwrap(),
-        exec_dir = source_file_path.canonicalize().unwrap().to_str().unwrap(),
+        exec_dir = install_data
+            .desktop_entry_path
+            .canonicalize()
+            .unwrap()
+            .to_str()
+            .unwrap(),
     );
 
-    match fs::write(&source_desktop_path, desktop_entry_content) {
+    match fs::write(&install_data.install_path, desktop_entry_content) {
         Ok(_) => {
             println!(
                 "Successfully created the desktop entry at {}!",
-                source_desktop_path.to_str().unwrap()
+                &install_data.install_path.to_str().unwrap()
             );
         }
         Err(e) => {
@@ -233,20 +232,14 @@ pub fn initialize_binary(
 /// NOTE: This function internally handles all the errors and events, so
 /// there's no need to handle them externally.
 pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, release_tag_name: &str) {
-    let desktop_dir = local_data_dir.join("applications");
+    let install_data = InstallData::new(local_data_dir, install_dir, release_tag_name);
 
-    let app_image_file_name = format!("{}.AppImage", release_tag_name);
-    let desktop_file_name = format!("osu!-{}.desktop", release_tag_name);
-
-    let source_desktop_path = desktop_dir.join(desktop_file_name);
-    let source_file_path = install_dir.join(app_image_file_name);
-
-    match fs::remove_file(source_file_path) {
+    match fs::remove_file(&install_data.install_path) {
         Ok(_) => println!("Removed the {} binary.", release_tag_name),
         Err(e) => panic!("Couldn't remove the binary file:\n{:#?}", e),
     }
 
-    match fs::remove_file(source_desktop_path) {
+    match fs::remove_file(&install_data.desktop_entry_path) {
         Ok(_) => println!("Removed the {} desktop entry.", release_tag_name),
         Err(e) => panic!("Couldn't remove the desktop entry:\n{:#?}", e),
     }
@@ -289,5 +282,32 @@ mod test {
                 String::from("2022.142.1"),
             ]
         )
+    }
+}
+
+#[derive(Debug)]
+/// Contains common paths and file names required to manipulate a single binary.
+struct InstallData {
+    pub file_name: String,
+    pub desktop_entry_path: PathBuf,
+    pub install_path: PathBuf,
+}
+
+impl InstallData {
+    fn new(local_data_dir: &Path, install_dir: &Path, release_tag_name: &str) -> Self {
+        let desktop_dir = local_data_dir.join("applications");
+        let app_image_file_name = format!("{}.AppImage", release_tag_name);
+        let desktop_file_name = format!("osu!-{}.desktop", release_tag_name);
+
+        Self {
+            install_path: install_dir.join(&app_image_file_name),
+            desktop_entry_path: desktop_dir.join(desktop_file_name),
+            file_name: app_image_file_name,
+        }
+    }
+
+    fn get_temp_file_path(&self) -> PathBuf {
+        let temp_dir = Path::new(TEMP_DIR);
+        temp_dir.join(&self.file_name)
     }
 }
