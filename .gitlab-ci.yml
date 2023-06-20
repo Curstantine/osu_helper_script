@@ -1,25 +1,51 @@
 image: "rust:latest"
 
+default:
+  before_script:
+    - rustc --version
+    - cargo --version
+
 stages:
-  - build
+  - test
+  - release
 
-build:
-  stage: build
+test:cargo:
   script:
-    - cargo build
+    - cargo test --workspace --verbose
 
-release_job:
+lint-code:
+  stage: test
+  script:
+    - rustup component add rustfmt
+    - cargo fmt -- --check
+    - rustup component add clippy
+    - cargo clippy -- -D warnings
+
+release:prepare:
   stage: release
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
-  rules:
-    - if: $CI_COMMIT_TAG # Run this job when a tag is created
   script:
     - cargo build --release
-  release: # See https://docs.gitlab.com/ee/ci/yaml/#release for available properties
+    - mkdir -p dist
+    - cp target/release/osu_helper_script dist/osu_helper_script
+  artifacts:
+    paths:
+      - dist/
+
+release:create:
+  stage: release
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: never
+    - if: $CI_COMMIT_TAG == $CI_DEFAULT_BRANCH
+  needs:
+    - job: release:prepare
+      artifacts: true
+  release:
+    name: "$CI_COMMIT_TAG"
     tag_name: "$CI_COMMIT_TAG"
     description: "$CI_COMMIT_TAG"
     assets:
       links:
-        - link: "target/release/osu_helper_script"
+        - link: "dist/osu_helper_script"
           name: "osu_helper_script"
           type: "binary"
