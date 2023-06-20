@@ -7,6 +7,7 @@ default:
 
 stages:
   - test
+  - prepare
   - release
 
 test:cargo:
@@ -21,8 +22,8 @@ lint-code:
     - rustup component add clippy
     - cargo clippy -- -D warnings
 
-release:prepare:
-  stage: release
+prepare_job:
+  stage: prepare
   script:
     - cargo build --release
     - mkdir -p dist
@@ -31,14 +32,14 @@ release:prepare:
     paths:
       - dist/
 
-release:create:
+release_job:
   stage: release
   rules:
     - if: $CI_COMMIT_TAG
       when: never
-    - if: $CI_COMMIT_TAG == $CI_DEFAULT_BRANCH
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH 
   needs:
-    - job: release:prepare
+    - job: prepare_job
       artifacts: true
   release:
     name: "$CI_COMMIT_TAG"
@@ -46,6 +47,5 @@ release:create:
     description: "$CI_COMMIT_TAG"
     assets:
       links:
-        - link: "dist/osu_helper_script"
+        - url: "./dist/osu_helper_script"
           name: "osu_helper_script"
-          type: "binary"
