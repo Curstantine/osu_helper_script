@@ -24,12 +24,10 @@ fn main() {
         Some(string) => {
             let path = PathBuf::from(&string);
             if !path.exists() {
-                eprintln!("The specified install directory does not exist.");
-                std::process::exit(1);
+                panic!("The specified install directory does not exist.");
             }
             if !path.is_dir() {
-                eprintln!("The specified install directory is not a directory.");
-                std::process::exit(1);
+                panic!("The specified install directory is not a directory.");
             }
             path
         }

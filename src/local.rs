@@ -204,7 +204,7 @@ pub fn initialize_binary(
         version = release_tag_name,
         icon_dir = source_icon_path.canonicalize().unwrap().to_str().unwrap(),
         exec_dir = install_data
-            .desktop_entry_path
+            .install_path
             .canonicalize()
             .unwrap()
             .to_str()
@@ -245,8 +245,37 @@ pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, release_tag_name
     }
 }
 
+#[derive(Debug)]
+/// Contains common paths and file names required to manipulate a single binary.
+struct InstallData {
+    pub file_name: String,
+    pub desktop_entry_path: PathBuf,
+    pub install_path: PathBuf,
+}
+
+impl InstallData {
+    fn new(local_data_dir: &Path, install_dir: &Path, release_tag_name: &str) -> Self {
+        let desktop_dir = local_data_dir.join("applications");
+        let app_image_file_name = format!("{}.AppImage", release_tag_name);
+        let desktop_file_name = format!("osu!-{}.desktop", release_tag_name);
+
+        Self {
+            install_path: install_dir.join(&app_image_file_name),
+            desktop_entry_path: desktop_dir.join(desktop_file_name),
+            file_name: app_image_file_name,
+        }
+    }
+
+    fn get_temp_file_path(&self) -> PathBuf {
+        let temp_dir = Path::new(TEMP_DIR);
+        temp_dir.join(&self.file_name)
+    }
+}
+
 #[cfg(test)]
 mod test {
+    use std::path::Path;
+
     #[test]
     fn version_tag_cmp_works() {
         assert_eq!(
@@ -283,31 +312,23 @@ mod test {
             ]
         )
     }
-}
 
-#[derive(Debug)]
-/// Contains common paths and file names required to manipulate a single binary.
-struct InstallData {
-    pub file_name: String,
-    pub desktop_entry_path: PathBuf,
-    pub install_path: PathBuf,
-}
+    #[test]
+    fn test_install_data() {
+        let local_data_dir = Path::new("/home/username/.local/share");
+        let install_dir = local_data_dir.join("games/osu!");
+        let release_tag_name = String::from("2023.617.0");
 
-impl InstallData {
-    fn new(local_data_dir: &Path, install_dir: &Path, release_tag_name: &str) -> Self {
-        let desktop_dir = local_data_dir.join("applications");
-        let app_image_file_name = format!("{}.AppImage", release_tag_name);
-        let desktop_file_name = format!("osu!-{}.desktop", release_tag_name);
+        let install_data = super::InstallData::new(local_data_dir, &install_dir, &release_tag_name);
 
-        Self {
-            install_path: install_dir.join(&app_image_file_name),
-            desktop_entry_path: desktop_dir.join(desktop_file_name),
-            file_name: app_image_file_name,
-        }
-    }
-
-    fn get_temp_file_path(&self) -> PathBuf {
-        let temp_dir = Path::new(TEMP_DIR);
-        temp_dir.join(&self.file_name)
+        assert_eq!(install_data.file_name, String::from("2023.617.0.AppImage"));
+        assert_eq!(
+            install_data.install_path,
+            Path::new("/home/username/.local/share/games/osu!/2023.617.0.AppImage")
+        );
+        assert_eq!(
+            install_data.desktop_entry_path,
+            Path::new("/home/username/.local/share/applications/osu!-2023.617.0.desktop")
+        );
     }
 }
