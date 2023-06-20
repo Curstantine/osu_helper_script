@@ -4,7 +4,7 @@ use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 use crate::constants::{TEMP_DIR, USER_AGENT};
-use crate::github::{self, GithubRelease, GithubReleaseAsset};
+use crate::github::{self, GithubReleaseAsset};
 use crate::ureq::{box_request, download_file_with_progress};
 
 /// Lists all the releases available in the install_dir.
@@ -97,6 +97,19 @@ pub fn download_release_asset(asset: &GithubReleaseAsset) -> Result<Vec<u8>, cra
         response.into_reader(),
         server_size,
     )?)
+}
+
+pub fn update_desktop_database() {
+    let output = std::process::Command::new("update-desktop-database")
+        .output()
+        .expect("Failed to execute update-desktop-database");
+
+    if !output.status.success() {
+        panic!(
+            "Failed to update the desktop database:\n{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
 }
 
 /// Initializes all prerequisites required to move the [download_buffer] into a
@@ -211,6 +224,30 @@ pub fn initialize_binary(
 
     println!("Cleaning up temporary files...");
     fs::remove_dir_all(TEMP_DIR).unwrap();
+}
+
+/// Removes the binary and the desktop entry from their respective directories.
+///
+/// NOTE: This function internally handles all the errors and events, so
+/// there's no need to handle them externally.
+pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, release_tag_name: &str) {
+    let desktop_dir = local_data_dir.join("applications");
+
+    let app_image_file_name = format!("{}.AppImage", release_tag_name);
+    let desktop_file_name = format!("osu!-{}.desktop", release_tag_name);
+
+    let source_desktop_path = desktop_dir.join(desktop_file_name);
+    let source_file_path = install_dir.join(app_image_file_name);
+
+    match fs::remove_file(source_file_path) {
+        Ok(_) => println!("Removed the {} binary.", release_tag_name),
+        Err(e) => panic!("Couldn't remove the binary file:\n{:#?}", e),
+    }
+
+    match fs::remove_file(source_desktop_path) {
+        Ok(_) => println!("Removed the {} desktop entry.", release_tag_name),
+        Err(e) => panic!("Couldn't remove the desktop entry:\n{:#?}", e),
+    }
 }
 
 #[cfg(test)]

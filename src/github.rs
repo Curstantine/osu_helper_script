@@ -43,6 +43,14 @@ pub struct GithubRelease {
     pub assets: Vec<GithubReleaseAsset>,
 }
 
+impl GithubRelease {
+    pub fn get_app_image_asset(&self) -> Option<&GithubReleaseAsset> {
+        self.assets
+            .iter()
+            .find(|asset| asset.name.ends_with(".AppImage"))
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct GithubReleaseAsset {
     pub name: String,

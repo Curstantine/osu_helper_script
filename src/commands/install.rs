@@ -1,16 +1,7 @@
 use inquire::Select;
-use std::{
-    fs::{self, Permissions},
-    os::unix::prelude::PermissionsExt,
-    path::PathBuf,
-};
+use std::path::PathBuf;
 
-use crate::{
-    constants::{TEMP_DIR, USER_AGENT},
-    github,
-    local::{self, download_release_asset, initialize_binary},
-    ureq::{box_request, download_file_with_progress},
-};
+use crate::{github, local};
 
 pub fn install(
     local_data_dir: PathBuf,
@@ -18,28 +9,29 @@ pub fn install(
     version: Option<String>,
 ) -> anyhow::Result<()> {
     let installed_versions = local::get_local_release_tags(&install_dir)?;
-    let version = match version {
+    let release = match version {
         Some(version) => {
-            let en = if version.to_lowercase() == "latest" {
+            let release = if version.to_lowercase() == "latest" {
                 github::get_latest_release()
             } else {
                 github::get_release(&version)
             };
 
-            if let Err(e) = en {
+            if let Err(e) = release {
                 match *e {
                     ureq::Error::Status(404, _) => {
-                        eprintln!("Couldn't find a release with the tag \"{}\"", version);
-                        std::process::exit(1);
+                        panic!("Couldn't find a release with the tag \"{}\"", version)
                     }
                     e => {
-                        eprintln!("Came across an error while trying to find: {:#?}", e);
-                        std::process::exit(1);
+                        panic!(
+                            "Came across an error while trying to find the tag:\n{:#?}",
+                            e
+                        );
                     }
                 }
             }
 
-            en.unwrap()
+            release.unwrap()
         }
         None => {
             let releases = github::get_releases()?;
@@ -55,38 +47,29 @@ pub fn install(
                     .find(|release| release.tag_name == selection)
                     .unwrap(),
                 Err(e) => {
-                    eprintln!("Couldn't resolve a version from the input: {:#?}", e);
-                    std::process::exit(1);
+                    panic!("Couldn't resolve a version from the input: {:#?}", e);
                 }
             }
         }
     };
 
-    let app_image_asset = match version
-        .assets
-        .into_iter()
-        .find(|asset| asset.name.ends_with(".AppImage"))
-    {
-        Some(asset) => asset,
-        None => {
-            eprintln!("Couldn't find an AppImage asset in the release.");
-            std::process::exit(1);
-        }
-    };
+    let app_image_asset = release
+        .get_app_image_asset()
+        .expect("AppImage asset in missing from the release assets of this tag");
 
-    let download_buffer = match download_release_asset(&app_image_asset) {
+    let download_buffer = match local::download_release_asset(app_image_asset) {
         Ok(buffer) => buffer,
         Err(e) => panic!("Couldn't download the AppImage asset:\n {:#?}", e),
     };
 
-    initialize_binary(
+    local::initialize_binary(
         &local_data_dir,
         &install_dir,
-        &version.tag_name,
+        &release.tag_name,
         download_buffer,
     );
+    local::update_desktop_database();
 
-    println!("Successfully installed osu! {}!", version.tag_name);
-
+    println!("Successfully installed osu! {}!", release.tag_name);
     Ok(())
 }
