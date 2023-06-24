@@ -1,30 +1,59 @@
-image: "rust:latest"
+# !reference https://forum.gitlab.com/t/making-a-binary-release-via-ci-cd/57148/2
 
-# Use cargo to test the project
-test:cargo:
+stages:
+  - test
+  - build
+  - upload
+  - release
+
+variables:
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/osu_helper_script/${CI_COMMIT_TAG}"
+  FINAL_BIN_NAME: osu_helper_script-${CI_COMMIT_TAG}
+
+test:
+  stage: test
+  image: "rust:latest"
   rules:
-    - if: $CI_COMMIT_TAG
-      when: never 
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
   script:
-    - rustc --version && cargo --version  # Print version info for debugging
+    - rustc --version && cargo --version 
     - cargo test --workspace --verbose
 
-release:cargo:
-  image: registry.gitlab.com/gitlab-org/release-cli:latest
-  stage: deploy
+build:
+  stage: build
+  image: "rust:latest"
   rules:
     - if: $CI_COMMIT_TAG
   script:
     - cargo build --release
-    - cp target/release/osu_helper_script .
+    - mkdir bin
+    - mv target/release/osu_helper_script bin/${FINAL_BIN_NAME}
+  cache:
+    paths:
+      - target/release/
   artifacts:
     paths:
-      - osu_helper_script
+      - bin
+
+upload:
+    stage: upload
+    image: curlimages/curl:latest
+    rules:
+      - if: $CI_COMMIT_TAG
+    script:
+      - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/${FINAL_BIN_NAME} ${PACKAGE_REGISTRY_URL}/${FINAL_BIN_NAME}'
+
+release:
+  stage: release
+  rules:
+    - if: $CI_COMMIT_TAG
+  script:
+    - echo "running release_job for $TAG"
   release:
-    tag_name: "$CI_COMMIT_TAG"
-    description: "test"
+    name: ${CI_COMMIT_TAG}
+    tag_name: ${CI_COMMIT_TAG}
+    description: "Check and compare commit histories for changes."
     assets:
       links:
-        - name: osu_helper_script
-          url: ./osu_helper_script
+        - name: ${FINAL_BIN_NAME}
+          url: ${PACKAGE_REGISTRY_URL}/${FINAL_BIN_NAME}
