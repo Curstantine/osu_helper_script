@@ -34,12 +34,11 @@ pub fn update(
             )))
         }
         Ordering::Greater => {
-            panic!(
+            return Err(Error::Descriptive(format!(
                 "LOL! You're on a newer version than the latest release!\n\
-                Installed: {}\n\
-                Latest: {}",
+                Installed: {} Latest: {}",
                 installed_tags[0], &latest_release.tag_name
-            )
+            )))
         }
     }
 
