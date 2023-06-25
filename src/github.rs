@@ -5,6 +5,7 @@ use crate::{
         GITHUB_ICON_URL, GITHUB_LATEST_RELEASE_URL, GITHUB_RELEASES_URL, GITHUB_RELEASE_TAG_URL,
         USER_AGENT,
     },
+    errors::{self, Error},
     net,
 };
 
@@ -26,10 +27,14 @@ pub fn get_latest_release() -> Result<GithubRelease, Box<ureq::Error>> {
     )
 }
 
-pub fn get_icon() -> anyhow::Result<Vec<u8>> {
+pub fn get_icon() -> errors::Result<Vec<u8>> {
     let response = net::box_request(ureq::get(GITHUB_ICON_URL).set("User-Agent", USER_AGENT))?;
+    let size = match response.header("Content-Length").unwrap().parse::<u64>() {
+        Ok(size) => size,
+        Err(_) => return Err(Error::Descriptive("Couldn't parse icon size".into())),
+    };
 
-    let mut icon = Vec::with_capacity(response.header("Content-Length").unwrap().parse()?);
+    let mut icon = Vec::with_capacity(size as usize);
     response.into_reader().read_to_end(&mut icon)?;
 
     Ok(icon)

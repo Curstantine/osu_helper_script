@@ -9,8 +9,7 @@ Out of the box, this CLI allows you to:
 
 ## Why?
 
-Getting osu to work correctly on Linux is a hassle. This script aims to alleviate some of the issues
-by performing some repetitive tasks for you.
+Updating osu, changing the filenames and changing the desktop entry is a pain.
 
 ## Requirements
 

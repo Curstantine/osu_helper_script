@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use cli::{Cli, Commands};
+use errors::Error;
 
 mod cli;
 mod commands;
@@ -11,10 +12,11 @@ mod github;
 mod local;
 mod net;
 
-fn main() {
+fn main() -> errors::Result<()> {
     if !cfg!(target_os = "linux") {
-        eprintln!("This program is only supported on Linux.");
-        std::process::exit(1);
+        return Err(Error::Descriptive(
+            "This program is only supported on Linux.".to_string(),
+        ));
     }
 
     let cli = Cli::parse();
@@ -36,15 +38,22 @@ fn main() {
             .collect(),
     };
 
-    let run = match cli.command {
-        Commands::Install {
-            osu_version: version,
-        } => commands::install(local_data_dir, install_dir, version),
+    let run: errors::Result<()> = match cli.command {
         Commands::Uninstall => unimplemented!(),
+        Commands::Install { osu_version } => {
+            commands::install(local_data_dir, install_dir, osu_version)
+        }
         Commands::Update { no_confirm } => {
             commands::update(local_data_dir, install_dir, no_confirm)
         }
     };
 
-    run.unwrap();
+    if let Err(e) = run {
+        match e {
+            Error::Abort => {}
+            _ => eprintln!("{}", e),
+        }
+    };
+
+    Ok(())
 }

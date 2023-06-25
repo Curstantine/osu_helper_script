@@ -3,6 +3,7 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
+use crate::errors::{self, Error};
 use crate::{
     constants::{TEMP_DIR, USER_AGENT},
     github::{self, GithubReleaseAsset},
@@ -76,23 +77,23 @@ pub fn cmp_version_tag_ltr(left: &str, right: &str) -> std::cmp::Ordering {
 /// Downloads a given release asset with a progress bar.
 ///
 /// Internally, this requests the asset, and then streams the response into a Vec<u8>.
-pub fn download_release_asset(asset: &GithubReleaseAsset) -> Result<Vec<u8>, crate::errors::Error> {
+pub fn download_release_asset(asset: &GithubReleaseAsset) -> errors::Result<Vec<u8>> {
     let response = net::box_request(
         ureq::get(&asset.browser_download_url)
             .set("Accept", "application/octet-stream")
             .set("User-Agent", USER_AGENT),
     )?;
 
-    let server_size = response
-        .header("content-length")
-        .and_then(|size| size.parse::<u64>().ok())
-        .unwrap_or(0);
+    let server_size = match response.header("Content-Length").unwrap().parse::<u64>() {
+        Ok(size) => size,
+        Err(_) => return Err(Error::Descriptive("Couldn't parse icon size".into())),
+    };
 
     if server_size != asset.size {
-        eprintln!(
-            "The file size of the downloadable file doesn't match the size of the asset on GitHub."
-        );
-        std::process::exit(1);
+        return Err(Error::Descriptive(format!(
+            "The file size of the downloadable file doesn't match the size of the asset on GitHub. ({} != {})",
+            server_size, asset.size
+        )));
     }
 
     Ok(net::download_file_with_progress(
@@ -101,7 +102,7 @@ pub fn download_release_asset(asset: &GithubReleaseAsset) -> Result<Vec<u8>, cra
     )?)
 }
 
-pub fn update_desktop_database(local_data_dir: &Path) {
+pub fn update_desktop_database(local_data_dir: &Path) -> errors::Result<()> {
     let desktop_dir = local_data_dir.join("applications").canonicalize().unwrap();
     let output = std::process::Command::new("update-desktop-database")
         .arg(desktop_dir.to_str().unwrap())
@@ -109,89 +110,44 @@ pub fn update_desktop_database(local_data_dir: &Path) {
         .expect("Failed to execute update-desktop-database");
 
     if !output.status.success() {
-        panic!(
+        return Err(Error::Descriptive(format!(
             "Failed to update the desktop database:\n{}",
             String::from_utf8_lossy(&output.stderr)
-        );
+        )));
     }
+
+    Ok(())
 }
 
 /// Initializes all prerequisites required to move the [download_buffer] into a
 /// file and creates the desktop entry.
-///
-/// NOTE: This function internally handles all the errors and events, so
-/// there's no need to handle them externally.
 pub fn initialize_binary(
     local_data_dir: &Path,
     install_dir: &Path,
     release_tag_name: &str,
     download_buffer: Vec<u8>,
-) {
+) -> errors::Result<()> {
     let install_data = InstallData::new(local_data_dir, install_dir, release_tag_name);
     let tmp_file_path = install_data.get_temp_file_path();
     let source_icon_path = install_dir.join("osu.png");
 
-    match fs::create_dir_all(TEMP_DIR) {
-        Ok(_) => {
-            if let Err(e) = fs::write(&tmp_file_path, download_buffer) {
-                panic!(
-                    "Couldn't write the downloaded file to the temporary directory:\n{:#?}",
-                    e
-                );
-            }
-        }
-        Err(e) => {
-            panic!("Couldn't create temporary directory at:\n{:#?}", e);
-        }
-    }
+    fs::create_dir_all(TEMP_DIR)?;
+    fs::write(&tmp_file_path, download_buffer)?;
 
     if !install_dir.exists() {
-        if let Err(e) = fs::create_dir_all(install_dir) {
-            panic!(
-                "Couldn't create the install directory at: {:#?}\n{:#?}",
-                install_dir.display(),
-                e
-            );
-        }
+        fs::create_dir_all(install_dir)?;
     }
 
-    match fs::rename(tmp_file_path, &install_data.install_path) {
-        Ok(_) => {
-            println!(
-                "Successfully installed {} to {}",
-                release_tag_name,
-                install_dir.display()
-            );
-        }
-        Err(e) => {
-            panic!(
-                "Couldn't move the downloaded file to the install directory:\n{:#?}",
-                e
-            );
-        }
-    }
-
-    if let Err(e) = fs::set_permissions(&install_data.install_path, Permissions::from_mode(0o755)) {
-        panic!(
-            "Couldn't set executable permissions to the downloaded file: {:#?}",
-            e
-        );
-    }
+    fs::rename(tmp_file_path, &install_data.install_path)?;
+    fs::set_permissions(&install_data.install_path, Permissions::from_mode(0o755))?;
+    println!(
+        "Successfully installed {} to {}",
+        release_tag_name,
+        install_dir.display()
+    );
 
     if !source_icon_path.exists() {
-        match github::get_icon() {
-            Ok(icon) => {
-                if let Err(e) = fs::write(&source_icon_path, icon) {
-                    eprintln!(
-                        "Couldn't write the icon to the specified directory: {:#?}",
-                        e
-                    );
-                }
-            }
-            Err(e) => {
-                panic!("Couldn't download the icon:\n{:#?}", e);
-            }
-        };
+        github::get_icon()?;
     }
 
     let desktop_entry_content = format!(
@@ -213,44 +169,42 @@ pub fn initialize_binary(
             .unwrap(),
     );
 
-    match fs::write(&install_data.desktop_entry_path, desktop_entry_content) {
-        Ok(_) => {
-            println!(
-                "Successfully created the desktop entry at {}!",
-                &install_data.desktop_entry_path.to_str().unwrap()
-            );
-        }
-        Err(e) => {
-            panic!("Couldn't create the desktop entry:\n{:#?}", e);
-        }
-    }
+    fs::write(&install_data.desktop_entry_path, desktop_entry_content)?;
+    println!(
+        "Successfully created the desktop entry at {}!",
+        &install_data.desktop_entry_path.to_str().unwrap()
+    );
 
     println!("Cleaning up temporary files...");
-    fs::remove_dir_all(TEMP_DIR).unwrap();
+    fs::remove_dir_all(TEMP_DIR)?;
 
     println!("Updating the desktop database...");
-    update_desktop_database(local_data_dir);
+    update_desktop_database(local_data_dir)?;
+
+    Ok(())
 }
 
 /// Removes the binary and the desktop entry from their respective directories.
 ///
 /// NOTE: This function internally handles all the errors and events, so
 /// there's no need to handle them externally.
-pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, release_tag_name: &str) {
+pub fn remove_binary(
+    local_data_dir: &Path,
+    install_dir: &Path,
+    release_tag_name: &str,
+) -> errors::Result<()> {
     let install_data = InstallData::new(local_data_dir, install_dir, release_tag_name);
 
-    match fs::remove_file(&install_data.install_path) {
-        Ok(_) => println!("Removed the {} binary.", release_tag_name),
-        Err(e) => panic!("Couldn't remove the binary file:\n{:#?}", e),
-    }
+    fs::remove_file(&install_data.install_path)?;
+    println!("Removed the {} binary.", release_tag_name);
 
-    match fs::remove_file(&install_data.desktop_entry_path) {
-        Ok(_) => println!("Removed the {} desktop entry.", release_tag_name),
-        Err(e) => panic!("Couldn't remove the desktop entry:\n{:#?}", e),
-    }
+    fs::remove_file(&install_data.desktop_entry_path)?;
+    println!("Removed the {} desktop entry.", release_tag_name);
 
     println!("Updating the desktop database...");
-    update_desktop_database(local_data_dir);
+    update_desktop_database(local_data_dir)?;
+
+    Ok(())
 }
 
 #[derive(Debug)]

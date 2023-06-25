@@ -21,6 +21,6 @@ pub enum Commands {
     Update {
         /// Don't ask for confirmation before updating
         #[arg(long)]
-        no_confirm: Option<bool>,
+        no_confirm: bool,
     },
 }

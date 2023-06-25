@@ -1,13 +1,13 @@
-use inquire::Select;
+use inquire::{error::InquireError, Select};
 use std::path::PathBuf;
 
-use crate::{github, local};
+use crate::{errors::Error, github, local};
 
 pub fn install(
     local_data_dir: PathBuf,
     install_dir: PathBuf,
     version: Option<String>,
-) -> anyhow::Result<()> {
+) -> Result<(), Error> {
     let installed_versions = local::get_local_release_tags(&install_dir)?;
     let release = match version {
         Some(version) => {
@@ -18,17 +18,14 @@ pub fn install(
             };
 
             if let Err(e) = release {
-                match *e {
-                    ureq::Error::Status(404, _) => {
-                        panic!("Couldn't find a release with the tag \"{}\"", version)
-                    }
-                    e => {
-                        panic!(
-                            "Came across an error while trying to find the tag:\n{:#?}",
-                            e
-                        );
-                    }
+                if let ureq::Error::Status(404, _) = *e {
+                    return Err(Error::Descriptive(format!(
+                        "Couldn't find a release with the tag {}",
+                        version
+                    )));
                 }
+
+                return Err(Error::from(e));
             }
 
             release.unwrap()
@@ -46,9 +43,13 @@ pub fn install(
                     .into_iter()
                     .find(|release| release.tag_name == selection)
                     .unwrap(),
-                Err(e) => {
-                    panic!("Couldn't resolve a version from the input: {:#?}", e);
-                }
+                Err(e) => match e {
+                    InquireError::OperationInterrupted | InquireError::OperationCanceled => {
+                        return Err(Error::Abort)
+                    }
+                    InquireError::IO(io_error) => return Err(Error::Io(io_error)),
+                    _ => panic!("Unhandled error: {:#?}", e),
+                },
             }
         }
     };
@@ -57,17 +58,14 @@ pub fn install(
         .get_app_image_asset()
         .expect("AppImage asset in missing from the release assets of this tag");
 
-    let download_buffer = match local::download_release_asset(app_image_asset) {
-        Ok(buffer) => buffer,
-        Err(e) => panic!("Couldn't download the AppImage asset:\n {:#?}", e),
-    };
+    let download_buffer = local::download_release_asset(app_image_asset)?;
 
     local::initialize_binary(
         &local_data_dir,
         &install_dir,
         &release.tag_name,
         download_buffer,
-    );
+    )?;
 
     println!("Successfully installed osu! {}!", release.tag_name);
     Ok(())
