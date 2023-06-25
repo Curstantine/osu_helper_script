@@ -128,27 +128,35 @@ pub fn initialize_binary(
     install_dir: &Path,
     release: &GithubRelease,
 ) -> errors::Result<()> {
-    let app_image_asset = release
-        .get_app_image_asset()
-        .expect("AppImage asset in missing from the release assets of this tag");
-    let download_buffer = local::download_release_asset(app_image_asset)?;
-
     let install_data = InstallData::new(local_data_dir, install_dir, &release.tag_name);
     let tmp_file_path = install_data.get_temp_file_path();
     let source_icon_path = install_dir.join("osu.png");
 
-    fs::create_dir_all(TEMP_DIR)?;
-    fs::write(&tmp_file_path, download_buffer)?;
+    let temp_file_exists = tmp_file_path.try_exists()?;
+    let install_file_exists = install_data.install_path.try_exists()?;
 
-    if !install_dir.exists() {
+    if temp_file_exists || install_file_exists {
+        println!("Found a previous download of this release, skipping download");
+    } else {
+        let app_image_asset = release
+            .get_app_image_asset()
+            .expect("AppImage asset in missing from the release assets of this tag");
+        let download_buffer = local::download_release_asset(app_image_asset)?;
+
+        fs::write(&tmp_file_path, download_buffer)?;
+    }
+
+    if !install_dir.try_exists()? {
         fs::create_dir_all(install_dir)?;
     }
 
-    fs::rename(tmp_file_path, &install_data.install_path)?;
-    fs::set_permissions(&install_data.install_path, Permissions::from_mode(0o755))?;
-    println!("Moved {} to {:#?}", &release.tag_name, install_dir);
+    if !install_file_exists {
+        fs::rename(tmp_file_path, &install_data.install_path)?;
+        fs::set_permissions(&install_data.install_path, Permissions::from_mode(0o755))?;
+        println!("Moved {} to {:#?}", &release.tag_name, install_dir);
+    }
 
-    if !source_icon_path.exists() {
+    if !source_icon_path.try_exists()? {
         github::get_icon()?;
     }
 
