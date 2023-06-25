@@ -7,7 +7,7 @@ stages:
   - release
 
 variables:
-  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/osu_helper_script/${CI_COMMIT_TAG}"
+  PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/binaries/osu_helper_script/${CI_COMMIT_TAG}"
   FINAL_BIN_NAME: osu_helper_script-${CI_COMMIT_TAG}
 
 test:
