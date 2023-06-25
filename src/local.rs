@@ -187,8 +187,15 @@ pub fn initialize_binary(
     );
 
     println!("Cleaning up temporary files...");
-    fs::remove_dir_all(TEMP_DIR)?;
-    println!("\rSuccessfully cleaned up temporary files!");
+    match fs::remove_dir_all(TEMP_DIR) {
+        Ok(_) => println!("\rSuccessfully cleaned up temporary files!"),
+        Err(e) => {
+            if e.kind() != std::io::ErrorKind::NotFound {
+                return Err(Error::from(e));
+            }
+            println!("\rNo temporary files to clean up!");
+        }
+    }
 
     println!("Updating the desktop database...");
     update_desktop_database(local_data_dir)?;
