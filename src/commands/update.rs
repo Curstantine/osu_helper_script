@@ -62,19 +62,7 @@ pub fn update(
         };
     }
 
-    let app_image_asset = latest_release
-        .get_app_image_asset()
-        .expect("AppImage asset in missing from the release assets of this tag");
-
-    let download_buffer = local::download_release_asset(app_image_asset)?;
-
-    local::initialize_binary(
-        &local_data_dir,
-        &install_dir,
-        &latest_release.tag_name,
-        download_buffer,
-    )?;
-
+    local::initialize_binary(&local_data_dir, &install_dir, &latest_release)?;
     local::remove_binary(&local_data_dir, &install_dir, latest_local_tag)?;
     println!("Successfully updated to {}!", &latest_release.tag_name);
 

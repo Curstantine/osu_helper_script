@@ -4,6 +4,8 @@ use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 use crate::errors::{self, Error};
+use crate::github::GithubRelease;
+use crate::local;
 use crate::{
     constants::{TEMP_DIR, USER_AGENT},
     github::{self, GithubReleaseAsset},
@@ -124,10 +126,14 @@ pub fn update_desktop_database(local_data_dir: &Path) -> errors::Result<()> {
 pub fn initialize_binary(
     local_data_dir: &Path,
     install_dir: &Path,
-    release_tag_name: &str,
-    download_buffer: Vec<u8>,
+    release: &GithubRelease,
 ) -> errors::Result<()> {
-    let install_data = InstallData::new(local_data_dir, install_dir, release_tag_name);
+    let app_image_asset = release
+        .get_app_image_asset()
+        .expect("AppImage asset in missing from the release assets of this tag");
+    let download_buffer = local::download_release_asset(app_image_asset)?;
+
+    let install_data = InstallData::new(local_data_dir, install_dir, &release.tag_name);
     let tmp_file_path = install_data.get_temp_file_path();
     let source_icon_path = install_dir.join("osu.png");
 
@@ -140,11 +146,7 @@ pub fn initialize_binary(
 
     fs::rename(tmp_file_path, &install_data.install_path)?;
     fs::set_permissions(&install_data.install_path, Permissions::from_mode(0o755))?;
-    println!(
-        "Successfully installed {} to {}",
-        release_tag_name,
-        install_dir.display()
-    );
+    println!("Moved {} to {:#?}", &release.tag_name, install_dir);
 
     if !source_icon_path.exists() {
         github::get_icon()?;
@@ -159,7 +161,7 @@ pub fn initialize_binary(
         Version=1.0\n\
         Type=Application\n\
         Categories=Game;",
-        version = release_tag_name,
+        version = &release.tag_name,
         icon_dir = source_icon_path.canonicalize().unwrap().to_str().unwrap(),
         exec_dir = install_data
             .install_path
@@ -169,17 +171,20 @@ pub fn initialize_binary(
             .unwrap(),
     );
 
+    println!("Creating the desktop entry...");
     fs::write(&install_data.desktop_entry_path, desktop_entry_content)?;
     println!(
-        "Successfully created the desktop entry at {}!",
+        "\rSuccessfully created the desktop entry at {}!",
         &install_data.desktop_entry_path.to_str().unwrap()
     );
 
     println!("Cleaning up temporary files...");
     fs::remove_dir_all(TEMP_DIR)?;
+    println!("\rSuccessfully cleaned up temporary files!");
 
     println!("Updating the desktop database...");
     update_desktop_database(local_data_dir)?;
+    println!("\rSuccessfully updated the desktop database!");
 
     Ok(())
 }
@@ -191,18 +196,21 @@ pub fn initialize_binary(
 pub fn remove_binary(
     local_data_dir: &Path,
     install_dir: &Path,
-    release_tag_name: &str,
+    tag_name: &str,
 ) -> errors::Result<()> {
-    let install_data = InstallData::new(local_data_dir, install_dir, release_tag_name);
+    let install_data = InstallData::new(local_data_dir, install_dir, tag_name);
 
+    println!("Removing the {} binary...", tag_name);
     fs::remove_file(&install_data.install_path)?;
-    println!("Removed the {} binary.", release_tag_name);
+    println!("\rSuccessfully remove the {} binary.", tag_name);
 
+    println!("Removing the {} desktop entry...", tag_name);
     fs::remove_file(&install_data.desktop_entry_path)?;
-    println!("Removed the {} desktop entry.", release_tag_name);
+    println!("\rSuccessfully remove the {} desktop entry.", tag_name);
 
     println!("Updating the desktop database...");
     update_desktop_database(local_data_dir)?;
+    println!("\rSuccessfully updated the desktop database!");
 
     Ok(())
 }

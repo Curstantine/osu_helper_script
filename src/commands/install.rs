@@ -54,19 +54,8 @@ pub fn install(
         }
     };
 
-    let app_image_asset = release
-        .get_app_image_asset()
-        .expect("AppImage asset in missing from the release assets of this tag");
+    local::initialize_binary(&local_data_dir, &install_dir, &release)?;
+    println!("Successfully installed {}!", release.tag_name);
 
-    let download_buffer = local::download_release_asset(app_image_asset)?;
-
-    local::initialize_binary(
-        &local_data_dir,
-        &install_dir,
-        &release.tag_name,
-        download_buffer,
-    )?;
-
-    println!("Successfully installed osu! {}!", release.tag_name);
     Ok(())
 }
