@@ -33,19 +33,13 @@ fn main() -> errors::Result<()> {
             }
             path
         }
-        None => [local_data_dir.to_str().unwrap(), "games", "osu!"]
-            .iter()
-            .collect(),
+        None => [local_data_dir.to_str().unwrap(), "games", "osu!"].iter().collect(),
     };
 
     let run: errors::Result<()> = match cli.command {
-        Commands::Uninstall => unimplemented!(),
-        Commands::Install { osu_version } => {
-            commands::install(local_data_dir, install_dir, osu_version)
-        }
-        Commands::Update { no_confirm } => {
-            commands::update(local_data_dir, install_dir, no_confirm)
-        }
+        Commands::Install { osu_version } => commands::install(local_data_dir, install_dir, osu_version),
+        Commands::Remove { osu_version } => commands::remove(local_data_dir, install_dir, osu_version),
+        Commands::Update { no_confirm } => commands::update(local_data_dir, install_dir, no_confirm),
     };
 
     if let Err(e) = run {

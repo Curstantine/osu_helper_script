@@ -16,7 +16,7 @@ pub enum Commands {
     /// Install a specified version of osu!
     Install { osu_version: Option<String> },
     /// Uninstall a specified version of osu!
-    Uninstall,
+    Remove { osu_version: Option<String> },
     /// Update osu! to the latest version
     Update {
         /// Don't ask for confirmation before updating

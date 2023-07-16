@@ -3,7 +3,7 @@ use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
-use crate::errors::{self, Error};
+use crate::errors::{self, ignore_io_not_found, Error};
 use crate::github::GithubRelease;
 use crate::local;
 use crate::{
@@ -15,27 +15,38 @@ use crate::{
 /// Lists all the releases available in the install_dir.
 ///
 /// Returned vector is sorted in descending order.
+///
+/// ## NOTE
+///
+/// Do not rely on this function to check whether install_dir exists or not.
+/// For cases where install_dir scan return [std::io::ErrorKind::NotFound], this function will return an empty vector.
 pub fn get_local_release_tags(install_dir: &Path) -> io::Result<Vec<String>> {
-    let release_tags = fs::read_dir(install_dir)?
-        .filter_map(|entry| {
-            let entry = entry.ok()?;
-            let path = entry.path();
+    let release_tags: Vec<String> = match fs::read_dir(install_dir) {
+        Ok(entries) => entries
+            .filter_map(|entry| {
+                let entry = entry.ok()?;
+                let path = entry.path();
 
-            if path.is_dir() {
-                return None;
+                if path.is_dir() {
+                    return None;
+                }
+
+                let name = path.file_name().map(|name| name.to_string_lossy().to_string())?;
+                if name.ends_with(".AppImage") {
+                    Some(name.replace(".AppImage", ""))
+                } else {
+                    None
+                }
+            })
+            .collect(),
+        Err(e) => {
+            if e.kind() == io::ErrorKind::NotFound {
+                return Ok(Vec::with_capacity(0));
             }
 
-            let file_same = path
-                .file_name()
-                .map(|name| name.to_string_lossy().to_string())?;
-
-            if file_same.ends_with(".AppImage") {
-                Some(file_same.replace(".AppImage", ""))
-            } else {
-                None
-            }
-        })
-        .collect::<Vec<String>>();
+            return Err(e);
+        }
+    };
 
     Ok(sort_version_tags_desc(release_tags))
 }
@@ -53,10 +64,7 @@ pub fn cmp_version_tag_ltr(left: &str, right: &str) -> std::cmp::Ordering {
     let left = left.split('.').collect::<Vec<&str>>();
     let right = right.split('.').collect::<Vec<&str>>();
 
-    let left = left
-        .iter()
-        .map(|s| s.parse::<u32>().unwrap_or(0))
-        .collect::<Vec<u32>>();
+    let left = left.iter().map(|s| s.parse::<u32>().unwrap_or(0)).collect::<Vec<u32>>();
     let right = right
         .iter()
         .map(|s| s.parse::<u32>().unwrap_or(0))
@@ -98,18 +106,14 @@ pub fn download_release_asset(asset: &GithubReleaseAsset) -> errors::Result<Vec<
         )));
     }
 
-    Ok(net::download_file_with_progress(
-        response.into_reader(),
-        server_size,
-    )?)
+    Ok(net::download_file_with_progress(response.into_reader(), server_size)?)
 }
 
 pub fn update_desktop_database(local_data_dir: &Path) -> errors::Result<()> {
     let desktop_dir = local_data_dir.join("applications").canonicalize().unwrap();
     let output = std::process::Command::new("update-desktop-database")
         .arg(desktop_dir.to_str().unwrap())
-        .output()
-        .expect("Failed to execute update-desktop-database");
+        .output()?;
 
     if !output.status.success() {
         return Err(Error::Descriptive(format!(
@@ -123,11 +127,7 @@ pub fn update_desktop_database(local_data_dir: &Path) -> errors::Result<()> {
 
 /// Initializes all prerequisites required to move the [download_buffer] into a
 /// file and creates the desktop entry.
-pub fn initialize_binary(
-    local_data_dir: &Path,
-    install_dir: &Path,
-    release: &GithubRelease,
-) -> errors::Result<()> {
+pub fn initialize_binary(local_data_dir: &Path, install_dir: &Path, release: &GithubRelease) -> errors::Result<()> {
     let install_data = InstallData::new(local_data_dir, install_dir, &release.tag_name);
     let tmp_file_path = install_data.get_temp_file_path();
     let source_icon_path = install_dir.join("osu.png");
@@ -158,7 +158,8 @@ pub fn initialize_binary(
     }
 
     if !source_icon_path.try_exists()? {
-        github::get_icon()?;
+        let icon_data = github::get_icon()?;
+        fs::write(&source_icon_path, icon_data)?;
     }
 
     let desktop_entry_content = format!(
@@ -172,33 +173,24 @@ pub fn initialize_binary(
         Categories=Game;",
         version = &release.tag_name,
         icon_dir = source_icon_path.canonicalize().unwrap().to_str().unwrap(),
-        exec_dir = install_data
-            .install_path
-            .canonicalize()
-            .unwrap()
-            .to_str()
-            .unwrap(),
+        exec_dir = install_data.install_path.canonicalize().unwrap().to_str().unwrap(),
     );
 
-    println!("Creating the desktop entry...");
+    print!("Creating the desktop entry...");
     fs::write(&install_data.desktop_entry_path, desktop_entry_content)?;
     println!(
         "\rSuccessfully created the desktop entry at {}!",
         &install_data.desktop_entry_path.to_str().unwrap()
     );
 
-    println!("Cleaning up temporary files...");
-    match fs::remove_dir_all(TEMP_DIR) {
-        Ok(_) => println!("\rSuccessfully cleaned up temporary files!"),
-        Err(e) => {
-            if e.kind() != std::io::ErrorKind::NotFound {
-                return Err(Error::from(e));
-            }
-            println!("\rNo temporary files to clean up!");
-        }
-    }
+    print!("Cleaning up temporary files...");
+    ignore_io_not_found(
+        fs::remove_dir_all(TEMP_DIR),
+        "Successfully cleaned up temporary files!".to_owned(),
+        "No temporary files to clean up!".to_owned(),
+    )?;
 
-    println!("Updating the desktop database...");
+    print!("Updating the desktop database...");
     update_desktop_database(local_data_dir)?;
     println!("\rSuccessfully updated the desktop database!");
 
@@ -209,22 +201,24 @@ pub fn initialize_binary(
 ///
 /// NOTE: This function internally handles all the errors and events, so
 /// there's no need to handle them externally.
-pub fn remove_binary(
-    local_data_dir: &Path,
-    install_dir: &Path,
-    tag_name: &str,
-) -> errors::Result<()> {
+pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, tag_name: &str) -> errors::Result<()> {
     let install_data = InstallData::new(local_data_dir, install_dir, tag_name);
 
-    println!("Removing the {} binary...", tag_name);
-    fs::remove_file(&install_data.install_path)?;
-    println!("\rSuccessfully remove the {} binary.", tag_name);
+    print!("Removing the {} binary...", tag_name);
+    ignore_io_not_found(
+        fs::remove_file(&install_data.install_path),
+        format!("Successfully removed the {} binary.", tag_name),
+        format!("Couldn't find the {} binary, skipping...", tag_name),
+    )?;
 
-    println!("Removing the {} desktop entry...", tag_name);
-    fs::remove_file(&install_data.desktop_entry_path)?;
-    println!("\rSuccessfully remove the {} desktop entry.", tag_name);
+    print!("Removing the {} desktop entry...", tag_name);
+    ignore_io_not_found(
+        fs::remove_file(&install_data.desktop_entry_path),
+        format!("Successfully removed the {} desktop entry.", tag_name),
+        format!("Couldn't find the {} desktop entry, skipping...", tag_name),
+    )?;
 
-    println!("Updating the desktop database...");
+    print!("Updating the desktop database...");
     update_desktop_database(local_data_dir)?;
     println!("\rSuccessfully updated the desktop database!");
 

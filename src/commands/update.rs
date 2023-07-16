@@ -1,19 +1,13 @@
-use inquire::{Confirm, InquireError};
+use inquire::Confirm;
 use std::{cmp::Ordering, path::PathBuf};
 
 use crate::{errors::Error, github, local};
 
-pub fn update(
-    local_data_dir: PathBuf,
-    install_dir: PathBuf,
-    no_confirm: bool,
-) -> Result<(), Error> {
+pub fn update(local_data_dir: PathBuf, install_dir: PathBuf, no_confirm: bool) -> Result<(), Error> {
     let installed_tags = local::get_local_release_tags(&install_dir)?;
-
     if installed_tags.is_empty() {
         return Err(Error::Descriptive(
-            "You don't have any known versions installed.\nUse the install command to install a version."
-                .to_string(),
+            "You don't have any known versions installed.\nUse the install command to install a version.".to_owned(),
         ));
     }
 
@@ -42,24 +36,8 @@ pub fn update(
         }
     }
 
-    if !no_confirm {
-        match Confirm::new("Continue to install?")
-            .with_default(true)
-            .prompt()
-        {
-            Ok(confirm) => {
-                if !confirm {
-                    return Err(Error::Abort);
-                }
-            }
-            Err(e) => match e {
-                InquireError::OperationInterrupted | InquireError::OperationCanceled => {
-                    return Err(Error::Abort)
-                }
-                InquireError::IO(io_error) => return Err(Error::Io(io_error)),
-                _ => panic!("Unhandled error: {:#?}", e),
-            },
-        };
+    if !no_confirm && !Confirm::new("Continue to install?").with_default(true).prompt()? {
+        return Err(Error::Abort);
     }
 
     local::initialize_binary(&local_data_dir, &install_dir, &latest_release)?;

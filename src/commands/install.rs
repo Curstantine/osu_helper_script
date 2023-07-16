@@ -1,13 +1,9 @@
-use inquire::{error::InquireError, Select};
+use inquire::Select;
 use std::path::PathBuf;
 
 use crate::{errors::Error, github, local};
 
-pub fn install(
-    local_data_dir: PathBuf,
-    install_dir: PathBuf,
-    version: Option<String>,
-) -> Result<(), Error> {
+pub fn install(local_data_dir: PathBuf, install_dir: PathBuf, version: Option<String>) -> Result<(), Error> {
     let installed_versions = local::get_local_release_tags(&install_dir)?;
     let release = match version {
         Some(version) => {
@@ -38,19 +34,11 @@ pub fn install(
                 .filter(|tag| !installed_versions.contains(tag))
                 .collect::<Vec<String>>();
 
-            match Select::new("Choose a version to download!", release_tags).prompt() {
-                Ok(selection) => releases
-                    .into_iter()
-                    .find(|release| release.tag_name == selection)
-                    .unwrap(),
-                Err(e) => match e {
-                    InquireError::OperationInterrupted | InquireError::OperationCanceled => {
-                        return Err(Error::Abort)
-                    }
-                    InquireError::IO(io_error) => return Err(Error::Io(io_error)),
-                    _ => panic!("Unhandled error: {:#?}", e),
-                },
-            }
+            let selection = Select::new("Choose a version to download!", release_tags).prompt()?;
+            releases
+                .into_iter()
+                .find(|release| release.tag_name == selection)
+                .unwrap()
         }
     };
 
