@@ -143,6 +143,7 @@ pub fn initialize_binary(
             .expect("AppImage asset in missing from the release assets of this tag");
         let download_buffer = local::download_release_asset(app_image_asset)?;
 
+        fs::create_dir(TEMP_DIR)?;
         fs::write(&tmp_file_path, download_buffer)?;
     }
 
