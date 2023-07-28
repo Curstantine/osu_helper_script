@@ -1,5 +1,3 @@
-use std::fs::Permissions;
-use std::os::unix::prelude::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
@@ -153,7 +151,10 @@ pub fn initialize_binary(local_data_dir: &Path, install_dir: &Path, release: &Gi
 
     if !install_file_exists {
         fs::rename(tmp_file_path, &install_data.install_path)?;
-        fs::set_permissions(&install_data.install_path, Permissions::from_mode(0o755))?;
+
+        #[cfg(target_family = "unix")]
+        set_permission_as_executable(&install_data.install_path)?;
+
         println!("Moved {} to {:#?}", &release.tag_name, install_dir);
     }
 
@@ -222,6 +223,15 @@ pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, tag_name: &str) 
     update_desktop_database(local_data_dir)?;
     println!("\rSuccessfully updated the desktop database!");
 
+    Ok(())
+}
+
+#[cfg(target_family = "unix")]
+fn set_permission_as_executable(file: &Path) -> errors::Result<()> {
+    use std::fs::Permissions;
+    use std::os::linux::prelude::PermissionsExt;
+
+    fs::set_permissions(file, Permissions::from_mode(0o755))?;
     Ok(())
 }
 

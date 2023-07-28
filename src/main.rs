@@ -13,10 +13,15 @@ mod local;
 mod net;
 
 fn main() -> errors::Result<()> {
-    if !cfg!(target_os = "linux") {
-        return Err(Error::Descriptive(
-            "This program is only supported on Linux.".to_string(),
-        ));
+    if !cfg!(target_family = "unix") {
+        println!(
+            "This is intended to run on unix based systems.\n\
+            If you are on Windows, you are better off using either the official installer or Peppy.Osu! winget package."
+        );
+
+        if !inquire::Confirm::prompt("Do you want to continue anyway?".into())? {
+            return Ok(());
+        }
     }
 
     let cli = Cli::parse();
