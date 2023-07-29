@@ -174,7 +174,7 @@ pub fn initialize_binary(local_data_dir: &Path, install_dir: &Path, release: &Gi
     }
 
     #[cfg(target_family = "unix")]
-    set_permission_as_executable(&install_data.install_path);
+    set_permission_as_executable(&install_data.install_path)?;
 
     if !source_icon_path.try_exists()? {
         let icon_data = github::get_icon()?;
