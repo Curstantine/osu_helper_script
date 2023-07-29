@@ -251,7 +251,6 @@ pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, tag_name: &str) 
 #[derive(Debug)]
 /// Contains common paths and file names required to manipulate a single binary.
 struct InstallData {
-    pub file_name: String,
     pub desktop_entry_path: PathBuf,
     pub install_path: PathBuf,
 }
@@ -263,9 +262,8 @@ impl InstallData {
         let desktop_file_name = format!("osu!-{}.desktop", release_tag_name);
 
         Self {
-            install_path: install_dir.join(&app_image_file_name),
+            install_path: install_dir.join(app_image_file_name),
             desktop_entry_path: desktop_dir.join(desktop_file_name),
-            file_name: app_image_file_name,
         }
     }
 }
@@ -319,7 +317,6 @@ mod test {
 
         let install_data = super::InstallData::new(local_data_dir, &install_dir, &release_tag_name);
 
-        assert_eq!(install_data.file_name, String::from("2023.617.0.AppImage"));
         assert_eq!(
             install_data.install_path,
             Path::new("/home/username/.local/share/games/osu!/2023.617.0.AppImage")

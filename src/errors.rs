@@ -14,21 +14,6 @@ pub enum Error {
     Abort,
 }
 
-impl Error {
-    /// Creates a new error with contextual information.
-    ///
-    /// NOTE: Only supported by [Error::Io] at the moment.
-    pub fn with_io_context(self, context: String) -> Self {
-        match self {
-            Self::Io { source, .. } => Self::Io {
-                source,
-                context: Some(context),
-            },
-            _ => self,
-        }
-    }
-}
-
 impl From<Box<ureq::Error>> for Error {
     fn from(error: Box<ureq::Error>) -> Self {
         Self::Ureq(error)
