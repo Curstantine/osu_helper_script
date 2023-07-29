@@ -229,7 +229,7 @@ pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, tag_name: &str) 
 #[cfg(target_family = "unix")]
 fn set_permission_as_executable(file: &Path) -> errors::Result<()> {
     use std::fs::Permissions;
-    use std::os::linux::prelude::PermissionsExt;
+    use std::os::unix::prelude::PermissionsExt;
 
     fs::set_permissions(file, Permissions::from_mode(0o755))?;
     Ok(())
