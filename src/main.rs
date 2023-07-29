@@ -12,16 +12,33 @@ mod github;
 mod local;
 mod net;
 
-fn main() -> errors::Result<()> {
+fn main() {
+    if let Err(e) = run() {
+        match e {
+            Error::Abort => {}
+            _ => eprintln!("{}", e),
+        }
+    };
+}
+
+fn run() -> errors::Result<()> {
     if !cfg!(target_family = "unix") {
         println!(
             "This is intended to run on unix based systems.\n\
             If you are on Windows, you are better off using either the official installer or Peppy.Osu! winget package."
         );
 
-        if !inquire::Confirm::prompt("Do you want to continue anyway?".into())? {
+        const MESSAGE: &str = "I really want to break my system!";
+        if !inquire::Confirm::new(MESSAGE).with_default(false).prompt()? {
             return Ok(());
         }
+    }
+
+    if !cfg!(target_os = "linux") {
+        println!(
+            "Support for non-linux systems is experimental.\n\
+            Expect things to break."
+        )
     }
 
     let cli = Cli::parse();
@@ -41,18 +58,11 @@ fn main() -> errors::Result<()> {
         None => [local_data_dir.to_str().unwrap(), "games", "osu!"].iter().collect(),
     };
 
-    let run: errors::Result<()> = match cli.command {
+    match cli.command {
         Commands::Install { osu_version } => commands::install(local_data_dir, install_dir, osu_version),
         Commands::Remove { osu_version } => commands::remove(local_data_dir, install_dir, osu_version),
         Commands::Update { no_confirm } => commands::update(local_data_dir, install_dir, no_confirm),
-    };
-
-    if let Err(e) = run {
-        match e {
-            Error::Abort => {}
-            _ => eprintln!("{}", e),
-        }
-    };
+    }?;
 
     Ok(())
 }

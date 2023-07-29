@@ -1,6 +1,12 @@
 use indicatif::{ProgressBar, ProgressStyle};
 use std::io::{Read, Write};
 
+use crate::{
+    constants::USER_AGENT,
+    errors::{self, Error},
+    github::GithubReleaseAsset,
+};
+
 pub fn box_request(request: ureq::Request) -> Result<ureq::Response, Box<ureq::Error>> {
     match request.call() {
         Ok(response) => Ok(response),
@@ -8,9 +14,7 @@ pub fn box_request(request: ureq::Request) -> Result<ureq::Response, Box<ureq::E
     }
 }
 
-pub fn box_and_deserialize<T: for<'a> serde::Deserialize<'a>>(
-    request: ureq::Request,
-) -> Result<T, Box<ureq::Error>> {
+pub fn box_and_deserialize<T: for<'a> serde::Deserialize<'a>>(request: ureq::Request) -> Result<T, Box<ureq::Error>> {
     let response = box_request(request)?;
 
     let response = match response.into_json::<T>() {
@@ -70,4 +74,29 @@ impl<'a> ProgressTracker<'a> {
         self.downloaded += bytes;
         self.progress_bar.set_position(self.downloaded);
     }
+}
+
+/// Downloads a given release asset with a progress bar.
+///
+/// Internally, this requests the asset, and then streams the response into a Vec<u8>.
+pub fn download_release_asset(asset: &GithubReleaseAsset) -> errors::Result<Vec<u8>> {
+    let response = box_request(
+        ureq::get(&asset.browser_download_url)
+            .set("Accept", "application/octet-stream")
+            .set("User-Agent", USER_AGENT),
+    )?;
+
+    let server_size = match response.header("Content-Length").unwrap().parse::<u64>() {
+        Ok(size) => size,
+        Err(_) => return Err(Error::Descriptive("Couldn't parse icon size".into())),
+    };
+
+    if server_size != asset.size {
+        return Err(Error::Descriptive(format!(
+            "The file size of the downloadable file doesn't match the size of the asset on GitHub. ({} != {})",
+            server_size, asset.size
+        )));
+    }
+
+    Ok(download_file_with_progress(response.into_reader(), server_size)?)
 }

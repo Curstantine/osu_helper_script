@@ -9,6 +9,11 @@ Out of the box, this tool allows you to:
 
 ## Installation
 
+> **Warning**
+> This is only tested on linux, and will only target linux/unix-like systems in the future.
+>
+> While it may be possible to compile and "run" on windows, it is guaranteed to break something.
+
 ### Prebuilt binaries
 
 1. Grab the binary from the [releases](https://gitlab.com/Curstantine/osu_helper_script/-/releases) page.
@@ -26,5 +31,8 @@ Out of the box, this tool allows you to:
 
 ## Development
 
-The project is (hopefully) written in a platform agnostic way, so it should work on any native platform that rust can compile to.
-But the main intention is to allow (or simplify) features like automatic updates, which unix based system don't support.
+The project is (hopefully) written in a platform agnostic way,
+so it should compile on any native platform that rust supports.
+
+But the primary intention is to allow (or simplify) features like automatic updates,
+which unix based system don't support.

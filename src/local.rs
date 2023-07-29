@@ -2,12 +2,8 @@ use std::path::{Path, PathBuf};
 use std::{fs, io};
 
 use crate::errors::{self, ignore_io_not_found, Error};
-use crate::github::GithubRelease;
-use crate::{
-    constants::USER_AGENT,
-    github::{self, GithubReleaseAsset},
-    net,
-};
+use crate::github::{self, GithubRelease};
+use crate::net;
 
 /// Lists all the releases available in the install_dir.
 ///
@@ -81,33 +77,8 @@ pub fn cmp_version_tag_ltr(left: &str, right: &str) -> std::cmp::Ordering {
     left.cmp(&right)
 }
 
-/// Downloads a given release asset with a progress bar.
-///
-/// Internally, this requests the asset, and then streams the response into a Vec<u8>.
-pub fn download_release_asset(asset: &GithubReleaseAsset) -> errors::Result<Vec<u8>> {
-    let response = net::box_request(
-        ureq::get(&asset.browser_download_url)
-            .set("Accept", "application/octet-stream")
-            .set("User-Agent", USER_AGENT),
-    )?;
-
-    let server_size = match response.header("Content-Length").unwrap().parse::<u64>() {
-        Ok(size) => size,
-        Err(_) => return Err(Error::Descriptive("Couldn't parse icon size".into())),
-    };
-
-    if server_size != asset.size {
-        return Err(Error::Descriptive(format!(
-            "The file size of the downloadable file doesn't match the size of the asset on GitHub. ({} != {})",
-            server_size, asset.size
-        )));
-    }
-
-    Ok(net::download_file_with_progress(response.into_reader(), server_size)?)
-}
-
 // TODO: Add support for other os alternatives.
-pub fn update_desktop_database(local_data_dir: &Path) -> errors::Result<()> {
+fn update_desktop_database(local_data_dir: &Path) -> errors::Result<()> {
     if cfg!(target_os = "linux") {
         print!("Updating the desktop database...");
 
@@ -193,7 +164,7 @@ pub fn initialize_binary(local_data_dir: &Path, install_dir: &Path, release: &Gi
         let app_image_asset = release
             .get_app_image_asset()
             .expect("AppImage asset in missing from the release assets of this tag");
-        let download_buffer = download_release_asset(app_image_asset)?;
+        let download_buffer = net::download_release_asset(app_image_asset)?;
         // let download_buffer = vec![0; 0];
 
         fs::write(&install_data.install_path, download_buffer).map_err(|e| Error::Io {
