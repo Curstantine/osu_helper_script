@@ -1,6 +1,8 @@
 use std::path::PathBuf;
 
 use clap::Parser;
+use colored::*;
+
 use cli::{Cli, Commands};
 use errors::Error;
 
@@ -23,39 +25,40 @@ fn main() {
 
 fn run() -> errors::Result<()> {
     if !cfg!(target_family = "unix") {
-        println!(
-            "This is intended to run on unix based systems.\n\
-            If you are on Windows, you are better off using either the official installer or Peppy.Osu! winget package."
-        );
+        const WARN: &str = "This is intended to run on unix based systems.\n\
+        If you are on Windows, you are better off using either the official installer or the Peppy.Osu! winget package.";
+        println!("{}", WARN.red());
 
         const MESSAGE: &str = "I really want to break my system!";
         if !inquire::Confirm::new(MESSAGE).with_default(false).prompt()? {
             return Ok(());
         }
-    }
-
-    if !cfg!(target_os = "linux") {
-        println!(
-            "Support for non-linux systems is experimental.\n\
-            Expect things to break."
-        )
+    } else if !cfg!(target_os = "linux") {
+        const WARN: &str = "Support for non-linux systems is experimental. Expect things to break.";
+        println!("{}", WARN.yellow());
     }
 
     let cli = Cli::parse();
 
     let local_data_dir = dirs::data_local_dir().expect("Couldn't find your local data directory.");
     let install_dir = match cli.install_dir {
+        None => [local_data_dir.to_str().unwrap(), "games", "osu!"].iter().collect(),
         Some(string) => {
             let path = PathBuf::from(&string);
-            if !path.exists() {
-                panic!("The specified install directory does not exist.");
+            if !path.try_exists()? {
+                return Err(Error::Descriptive(
+                    "The specified install directory does not exist.".to_owned(),
+                ));
             }
+
             if !path.is_dir() {
-                panic!("The specified install directory is not a directory.");
+                return Err(Error::Descriptive(
+                    "The specified install directory is not a directory.".to_owned(),
+                ));
             }
+
             path
         }
-        None => [local_data_dir.to_str().unwrap(), "games", "osu!"].iter().collect(),
     };
 
     match cli.command {

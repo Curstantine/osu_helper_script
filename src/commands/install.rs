@@ -1,5 +1,7 @@
-use inquire::Select;
 use std::path::PathBuf;
+
+use colored::*;
+use inquire::Select;
 
 use crate::{errors::Error, github, local};
 
@@ -44,7 +46,8 @@ pub fn install(local_data_dir: PathBuf, install_dir: PathBuf, version: Option<St
     };
 
     local::initialize_binary(&local_data_dir, &install_dir, &release)?;
-    println!("Successfully installed {}!", release.tag_name);
+
+    println!("Successfully installed {}!", release.tag_name.green());
 
     Ok(())
 }
