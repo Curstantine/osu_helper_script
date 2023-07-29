@@ -109,7 +109,7 @@ fn set_permission_as_executable(file: &Path) -> errors::Result<()> {
 
     fs::set_permissions(file, Permissions::from_mode(0o755)).map_err(|e| Error::Io {
         source: e,
-        context: Some(install_data.install_path.to_str().unwrap().to_owned()),
+        context: Some(file.to_str().unwrap().to_owned()),
     })?;
 
     Ok(())
