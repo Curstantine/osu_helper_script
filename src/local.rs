@@ -3,9 +3,8 @@ use std::{fs, io};
 
 use crate::errors::{self, ignore_io_not_found, Error};
 use crate::github::GithubRelease;
-use crate::local;
 use crate::{
-    constants::{TEMP_DIR, USER_AGENT},
+    constants::USER_AGENT,
     github::{self, GithubReleaseAsset},
     net,
 };
@@ -110,6 +109,8 @@ pub fn download_release_asset(asset: &GithubReleaseAsset) -> errors::Result<Vec<
 // TODO: Add support for other os alternatives.
 pub fn update_desktop_database(local_data_dir: &Path) -> errors::Result<()> {
     if cfg!(target_os = "linux") {
+        print!("Updating the desktop database...");
+
         let desktop_dir = local_data_dir.join("applications").canonicalize().unwrap();
         let output = std::process::Command::new("update-desktop-database")
             .arg(desktop_dir.to_str().unwrap())
@@ -121,6 +122,10 @@ pub fn update_desktop_database(local_data_dir: &Path) -> errors::Result<()> {
                 String::from_utf8_lossy(&output.stderr)
             )));
         }
+
+        println!("\rSuccessfully updated the desktop database!");
+    } else {
+        println!("Desktop database update is only supported on Linux for now.");
     }
 
     Ok(())
@@ -139,32 +144,58 @@ fn set_permission_as_executable(file: &Path) -> errors::Result<()> {
     Ok(())
 }
 
+fn create_desktop_entry(name: &str, icon_dir: &Path, exec_path: &Path, entry_path: &Path) -> errors::Result<()> {
+    if cfg!(target_os = "linux") {
+        let desktop_entry_content = format!(
+            "[Desktop Entry]\n\
+        Name{name}\n\
+        Icon={icon_dir}\n\
+        Comment=rhythm is just a *click* away!\n\
+        Exec={exec_dir}\n\
+        Version=1.0\n\
+        Type=Application\n\
+        Categories=Game;",
+            icon_dir = icon_dir.canonicalize()?.to_str().unwrap(),
+            exec_dir = exec_path.canonicalize()?.to_str().unwrap(),
+        );
+
+        print!("Creating the desktop entry...");
+        fs::write(entry_path, desktop_entry_content).map_err(|e| Error::Io {
+            source: e,
+            context: Some(entry_path.to_str().unwrap().to_owned()),
+        })?;
+
+        println!("\rSuccessfully created the desktop entry at {}!", entry_path.display());
+    } else {
+        println!("Desktop entry creation is only supported on Linux for now.");
+    }
+
+    Ok(())
+}
+
 /// Initializes all prerequisites required to move the [download_buffer] into a
 /// file and creates the desktop entry.
 pub fn initialize_binary(local_data_dir: &Path, install_dir: &Path, release: &GithubRelease) -> errors::Result<()> {
     let install_data = InstallData::new(local_data_dir, install_dir, &release.tag_name);
     let source_icon_path = install_dir.join("osu.png");
 
-    let install_file_exists = install_data.install_path.try_exists()?;
-
     if !install_dir.try_exists()? {
-        fs::create_dir_all(install_dir)?;
+        fs::create_dir_all(install_dir).map_err(|e| Error::Io {
+            source: e,
+            context: Some(install_dir.to_str().unwrap().to_owned()),
+        })?;
     }
 
-    if install_file_exists {
+    if install_data.install_path.try_exists()? {
         // TODO check sizes are the same;
         println!("Found a previous binary of this release, skipping download");
     } else {
-        // let app_image_asset = release
-        //     .get_app_image_asset()
-        //     .expect("AppImage asset in missing from the release assets of this tag");
-        // let download_buffer = local::download_release_asset(app_image_asset)?;
-        let download_buffer = vec![0; 0];
+        let app_image_asset = release
+            .get_app_image_asset()
+            .expect("AppImage asset in missing from the release assets of this tag");
+        let download_buffer = download_release_asset(app_image_asset)?;
+        // let download_buffer = vec![0; 0];
 
-        fs::create_dir(TEMP_DIR).map_err(|e| Error::Io {
-            source: e,
-            context: Some(TEMP_DIR.to_owned()),
-        })?;
         fs::write(&install_data.install_path, download_buffer).map_err(|e| Error::Io {
             source: e,
             context: Some(install_data.install_path.to_str().unwrap().to_owned()),
@@ -179,37 +210,14 @@ pub fn initialize_binary(local_data_dir: &Path, install_dir: &Path, release: &Gi
         fs::write(&source_icon_path, icon_data)?;
     }
 
-    let desktop_entry_content = format!(
-        "[Desktop Entry]\n\
-        Name=osu! {version}\n\
-        Icon={icon_dir}\n\
-        Comment=rhythm is just a *click* away!\n\
-        Exec={exec_dir}\n\
-        Version=1.0\n\
-        Type=Application\n\
-        Categories=Game;",
-        version = &release.tag_name,
-        icon_dir = source_icon_path.canonicalize().unwrap().to_str().unwrap(),
-        exec_dir = install_data.install_path.canonicalize().unwrap().to_str().unwrap(),
-    );
-
-    print!("Creating the desktop entry...");
-    fs::write(&install_data.desktop_entry_path, desktop_entry_content)?;
-    println!(
-        "\rSuccessfully created the desktop entry at {}!",
-        &install_data.desktop_entry_path.to_str().unwrap()
-    );
-
-    print!("Cleaning up temporary files...");
-    ignore_io_not_found(
-        fs::remove_dir_all(TEMP_DIR),
-        "Successfully cleaned up temporary files!".to_owned(),
-        "No temporary files to clean up!".to_owned(),
+    create_desktop_entry(
+        format!("osu! {version}", version = &release.tag_name).as_str(),
+        &source_icon_path,
+        &install_data.install_path,
+        &install_data.desktop_entry_path,
     )?;
 
-    print!("Updating the desktop database...");
     update_desktop_database(local_data_dir)?;
-    println!("\rSuccessfully updated the desktop database!");
 
     Ok(())
 }
@@ -235,9 +243,7 @@ pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, tag_name: &str) 
         format!("Couldn't find the {} desktop entry, skipping...", tag_name),
     )?;
 
-    print!("Updating the desktop database...");
     update_desktop_database(local_data_dir)?;
-    println!("\rSuccessfully updated the desktop database!");
 
     Ok(())
 }
