@@ -13,18 +13,19 @@ pub fn install(local_data_dir: PathBuf, install_dir: PathBuf, version: Option<St
                 github::get_release(&version)
             };
 
-            if let Err(e) = release {
-                if let ureq::Error::Status(404, _) = *e {
-                    return Err(Error::Descriptive(format!(
-                        "Couldn't find a release with the tag {}",
-                        version
-                    )));
+            match release {
+                Ok(rel) => rel,
+                Err(e) => {
+                    if let ureq::Error::Status(404, _) = *e {
+                        return Err(Error::Descriptive(format!(
+                            "Couldn't find a release with the tag {}",
+                            version
+                        )));
+                    }
+
+                    return Err(Error::from(e));
                 }
-
-                return Err(Error::from(e));
             }
-
-            release.unwrap()
         }
         None => {
             let releases = github::get_releases()?;

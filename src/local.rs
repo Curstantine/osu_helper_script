@@ -107,18 +107,34 @@ pub fn download_release_asset(asset: &GithubReleaseAsset) -> errors::Result<Vec<
     Ok(net::download_file_with_progress(response.into_reader(), server_size)?)
 }
 
+// TODO: Add support for other os alternatives.
 pub fn update_desktop_database(local_data_dir: &Path) -> errors::Result<()> {
-    let desktop_dir = local_data_dir.join("applications").canonicalize().unwrap();
-    let output = std::process::Command::new("update-desktop-database")
-        .arg(desktop_dir.to_str().unwrap())
-        .output()?;
+    if cfg!(target_os = "linux") {
+        let desktop_dir = local_data_dir.join("applications").canonicalize().unwrap();
+        let output = std::process::Command::new("update-desktop-database")
+            .arg(desktop_dir.to_str().unwrap())
+            .output()?;
 
-    if !output.status.success() {
-        return Err(Error::Descriptive(format!(
-            "Failed to update the desktop database:\n{}",
-            String::from_utf8_lossy(&output.stderr)
-        )));
+        if !output.status.success() {
+            return Err(Error::Descriptive(format!(
+                "Failed to update the desktop database:\n{}",
+                String::from_utf8_lossy(&output.stderr)
+            )));
+        }
     }
+
+    Ok(())
+}
+
+#[cfg(target_family = "unix")]
+fn set_permission_as_executable(file: &Path) -> errors::Result<()> {
+    use std::fs::Permissions;
+    use std::os::unix::prelude::PermissionsExt;
+
+    fs::set_permissions(file, Permissions::from_mode(0o755)).map_err(|e| Error::Io {
+        source: e,
+        context: Some(install_data.install_path.to_str().unwrap().to_owned()),
+    })?;
 
     Ok(())
 }
@@ -127,36 +143,36 @@ pub fn update_desktop_database(local_data_dir: &Path) -> errors::Result<()> {
 /// file and creates the desktop entry.
 pub fn initialize_binary(local_data_dir: &Path, install_dir: &Path, release: &GithubRelease) -> errors::Result<()> {
     let install_data = InstallData::new(local_data_dir, install_dir, &release.tag_name);
-    let tmp_file_path = install_data.get_temp_file_path();
     let source_icon_path = install_dir.join("osu.png");
 
-    let temp_file_exists = tmp_file_path.try_exists()?;
     let install_file_exists = install_data.install_path.try_exists()?;
-
-    if temp_file_exists || install_file_exists {
-        println!("Found a previous download of this release, skipping download");
-    } else {
-        let app_image_asset = release
-            .get_app_image_asset()
-            .expect("AppImage asset in missing from the release assets of this tag");
-        let download_buffer = local::download_release_asset(app_image_asset)?;
-
-        fs::create_dir(TEMP_DIR)?;
-        fs::write(&tmp_file_path, download_buffer)?;
-    }
 
     if !install_dir.try_exists()? {
         fs::create_dir_all(install_dir)?;
     }
 
-    if !install_file_exists {
-        fs::rename(tmp_file_path, &install_data.install_path)?;
+    if install_file_exists {
+        // TODO check sizes are the same;
+        println!("Found a previous binary of this release, skipping download");
+    } else {
+        // let app_image_asset = release
+        //     .get_app_image_asset()
+        //     .expect("AppImage asset in missing from the release assets of this tag");
+        // let download_buffer = local::download_release_asset(app_image_asset)?;
+        let download_buffer = vec![0; 0];
 
-        #[cfg(target_family = "unix")]
-        set_permission_as_executable(&install_data.install_path)?;
-
-        println!("Moved {} to {:#?}", &release.tag_name, install_dir);
+        fs::create_dir(TEMP_DIR).map_err(|e| Error::Io {
+            source: e,
+            context: Some(TEMP_DIR.to_owned()),
+        })?;
+        fs::write(&install_data.install_path, download_buffer).map_err(|e| Error::Io {
+            source: e,
+            context: Some(install_data.install_path.to_str().unwrap().to_owned()),
+        })?;
     }
+
+    #[cfg(target_family = "unix")]
+    set_permission_as_executable(&install_data.install_path);
 
     if !source_icon_path.try_exists()? {
         let icon_data = github::get_icon()?;
@@ -226,15 +242,6 @@ pub fn remove_binary(local_data_dir: &Path, install_dir: &Path, tag_name: &str) 
     Ok(())
 }
 
-#[cfg(target_family = "unix")]
-fn set_permission_as_executable(file: &Path) -> errors::Result<()> {
-    use std::fs::Permissions;
-    use std::os::unix::prelude::PermissionsExt;
-
-    fs::set_permissions(file, Permissions::from_mode(0o755))?;
-    Ok(())
-}
-
 #[derive(Debug)]
 /// Contains common paths and file names required to manipulate a single binary.
 struct InstallData {
@@ -254,11 +261,6 @@ impl InstallData {
             desktop_entry_path: desktop_dir.join(desktop_file_name),
             file_name: app_image_file_name,
         }
-    }
-
-    fn get_temp_file_path(&self) -> PathBuf {
-        let temp_dir = Path::new(TEMP_DIR);
-        temp_dir.join(&self.file_name)
     }
 }
 

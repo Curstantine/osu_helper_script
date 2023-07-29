@@ -5,9 +5,28 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[derive(Debug)]
 pub enum Error {
     Ureq(Box<ureq::Error>),
-    Io(std::io::Error),
+    Io {
+        source: std::io::Error,
+        /// Include additional context information about the error, like the path to the file that couldn't be opened.
+        context: Option<String>,
+    },
     Descriptive(String),
     Abort,
+}
+
+impl Error {
+    /// Creates a new error with contextual information.
+    ///
+    /// NOTE: Only supported by [Error::Io] at the moment.
+    pub fn with_io_context(self, context: String) -> Self {
+        match self {
+            Self::Io { source, .. } => Self::Io {
+                source,
+                context: Some(context),
+            },
+            _ => self,
+        }
+    }
 }
 
 impl From<Box<ureq::Error>> for Error {
@@ -18,7 +37,10 @@ impl From<Box<ureq::Error>> for Error {
 
 impl From<std::io::Error> for Error {
     fn from(error: std::io::Error) -> Self {
-        Self::Io(error)
+        Self::Io {
+            source: error,
+            context: None,
+        }
     }
 }
 
@@ -28,7 +50,10 @@ impl From<inquire::InquireError> for Error {
 
         match value {
             InquireError::OperationInterrupted | InquireError::OperationCanceled => Error::Abort,
-            InquireError::IO(io_error) => Error::Io(io_error),
+            InquireError::IO(io_error) => Error::Io {
+                source: io_error,
+                context: None,
+            },
             _ => panic!("Unhandled error: {:#?}", value),
         }
     }
@@ -37,10 +62,16 @@ impl From<inquire::InquireError> for Error {
 impl Display for Error {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Ureq(error) => write!(f, "Network error:\n{:#?}", error),
-            Self::Io(error) => write!(f, "IO error:\n{:#?}", error),
-            Self::Descriptive(message) => write!(f, "{}", message),
             Self::Abort => write!(f, "Aborted."),
+            Self::Descriptive(message) => write!(f, "{}", message),
+            Self::Ureq(error) => write!(f, "Network error:\n{:#?}", error),
+            Self::Io { source, context } => {
+                if let Some(context) = context {
+                    write!(f, "IO error: {}\nContext: {}", source, context)
+                } else {
+                    write!(f, "IO error: {}", source)
+                }
+            }
         }
     }
 }
