@@ -21,6 +21,15 @@ Out of the box, this tool allows you to:
 3. Make it executable (`chmod +x osu_helper_script`)
 4. Try running `osu_helper_script --version` to see if it works.
 
+#### Tab completion support
+
+Releases from `0.1.4` and up supports tab completion for `fish`, `bash` and `zsh`.
+
+These files can be found on the [Package Registry](https://gitlab.com/Curstantine/osu_helper_script/-/packages) 
+under thier respective release versions.
+
+Before using them, be sure to remove the `tab_completion_` prefix.
+
 ### From source
 
 1. Clone the repository

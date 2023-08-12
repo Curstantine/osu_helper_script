@@ -11,5 +11,5 @@ upload_to_package_registry "bin/$FINAL_BIN_NAME" "$FINAL_BIN_NAME"
 
 for file in $(ls bin/tab_completions/); do
 	file_path="bin/tab_completions/$file"
-	upload_to_package_registry $file_path "tab_completions/$file"
+	upload_to_package_registry $file_path "tab_completion_$file"
 done
