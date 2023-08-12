@@ -1,3 +1,5 @@
+echo "Running upload with $FINAL_BIN_NAME | $PACKAGE_REGISTRY_URL"
+
 function upload_to_package_registry() {
 	upload_file=$1
 	upload_target=$2
