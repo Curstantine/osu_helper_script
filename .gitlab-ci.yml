@@ -28,6 +28,7 @@ build:
     - cargo build --release
     - mkdir bin
     - mv target/release/osu_helper_script bin/${FINAL_BIN_NAME}
+    - mv target/release/tab_completions/ bin/
   cache:
     paths:
       - target/release/
@@ -40,8 +41,7 @@ upload:
     image: curlimages/curl:latest
     rules:
       - if: $CI_COMMIT_TAG
-    script:
-      - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file bin/${FINAL_BIN_NAME} ${PACKAGE_REGISTRY_URL}/${FINAL_BIN_NAME}'
+    script: bash ./scripts/upload.sh
 
 release:
   stage: release
