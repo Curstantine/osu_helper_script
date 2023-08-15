@@ -46,7 +46,7 @@ upload:
     script:
       - apk add curl tar
       - tar --zstd -cvf "sources.tar.zst" -C sources/ .
-      - curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file sources.tar.zst "${PACKAGE_REGISTRY_URL}/${SOURCES_FILE_NAME}"
+      - "curl --header 'JOB-TOKEN: ${CI_JOB_TOKEN}' --upload-file sources.tar.zst '${PACKAGE_REGISTRY_URL}/${SOURCES_FILE_NAME}'"
 
 release:
   stage: release
