@@ -4,8 +4,8 @@ Script to ease the process of downloading, updating, running and managing differ
 
 Out of the box, this tool allows you to:
 
-1. Check for updates to the latest locally available version of osu!
-2. Download and "install" a specific version of osu!
+1. Install, update and remove a specific version of osu!
+2. Automatically create and update desktop entries.
 
 ## Installation
 
@@ -14,21 +14,18 @@ Out of the box, this tool allows you to:
 >
 > While it may be possible to compile and "run" on windows, it is guaranteed to break something.
 
-### Prebuilt binaries
+### PKGBUILD (Arch)
+  
+1. Grab the [`PKGBUILD`](./packages/aur/PKGBUILD)
+2. Run `makepkg -i` right next to the saved PKGBUILD
+2. Try running `osu_helper_script --version`
+
+### Prebuilt binary
 
 1. Grab the binary from the [releases](https://gitlab.com/Curstantine/osu_helper_script/-/releases) page.
 2. Put it somewhere in your `$PATH` (e.g. `~/.local/bin`)
 3. Make it executable (`chmod +x osu_helper_script`)
-4. Try running `osu_helper_script --version` to see if it works.
-
-#### Tab completion support
-
-Releases from `0.1.4` and up supports tab completion for `fish`, `bash` and `zsh`.
-
-These files can be found on the [Package Registry](https://gitlab.com/Curstantine/osu_helper_script/-/packages) 
-under thier respective release versions.
-
-Before using them, be sure to remove the `tab_completion_` prefix.
+4. Try running `osu_helper_script --version` to see if it works
 
 ### From source
 
