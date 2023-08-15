@@ -8,7 +8,7 @@ stages:
 
 variables:
   PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/osu_helper_script/${CI_COMMIT_TAG}"
-  FINAL_BIN_NAME: osu_helper_script-${CI_COMMIT_TAG}
+  SOURCES_FILE_NAME: osu_helper_script-${CI_COMMIT_TAG}.tar.zst
 
 test:
   stage: test
@@ -26,22 +26,27 @@ build:
     - if: $CI_COMMIT_TAG
   script:
     - cargo build --release
-    - mkdir bin
-    - mv target/release/osu_helper_script bin/${FINAL_BIN_NAME}
-    - mv target/release/tab_completions/ bin/
+    - mkdir sources/completions
+    - mv target/release/osu_helper_script sources/
+    - mv target/release/tab_completions/_osu_helper_script sources/zsh
+    - mv target/release/tab_completions/osu_helper_script.bash sources/bash
+    - mv target/release/tab_completions/osu_helper_script.fish sources/fish
   cache:
     paths:
       - target/release/
   artifacts:
     paths:
-      - bin
+      - sources
 
 upload:
     stage: upload
-    image: curlimages/curl:latest
+    image: alpine
     rules:
       - if: $CI_COMMIT_TAG
-    script: ./scripts/upload.sh
+    script:
+      - apk add curl tar
+      - tar --zstd -cvf "sources.tar.zst" -C sources/ .
+      - curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file sources.tar.zst "${PACKAGE_REGISTRY_URL}/${SOURCES_FILE_NAME}"
 
 release:
   stage: release
@@ -56,5 +61,5 @@ release:
     description: "Check and compare commit histories for changes."
     assets:
       links:
-        - name: ${FINAL_BIN_NAME}
-          url: ${PACKAGE_REGISTRY_URL}/${FINAL_BIN_NAME}
+        - name: ${SOURCES_FILE_NAME}
+          url: ${PACKAGE_REGISTRY_URL}/${SOURCES_FILE_NAME}
