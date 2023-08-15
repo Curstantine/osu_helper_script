@@ -8,7 +8,12 @@ stages:
 
 variables:
   PACKAGE_REGISTRY_URL: "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/osu_helper_script/${CI_COMMIT_TAG}"
+
+  BIN_FILE_NAME: osu_helper_script-${CI_COMMIT_TAG}
+  BIN_URL: ${PACKAGE_REGISTRY_URL}/${BIN_FILE_NAME}
+
   SOURCES_FILE_NAME: osu_helper_script-${CI_COMMIT_TAG}.tar.zst
+  SOURCES_URL: ${PACKAGE_REGISTRY_URL}/${SOURCES_FILE_NAME}
 
 test:
   stage: test
@@ -46,7 +51,8 @@ upload:
     script:
       - apk add curl tar zstd
       - tar --zstd -cvf "sources.tar.zst" -C sources/ .
-      - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file sources.tar.zst ${PACKAGE_REGISTRY_URL}/${SOURCES_FILE_NAME}'
+      - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file sources/osu_helper_script ${BIN_URL}'
+      - 'curl --header "JOB-TOKEN: ${CI_JOB_TOKEN}" --upload-file sources.tar.zst ${SOURCES_URL}'
 
 release:
   stage: release
@@ -61,5 +67,7 @@ release:
     description: "Check and compare commit histories for changes."
     assets:
       links:
+        - name: ${BIN_FILE_NAME}
+          url: ${BIN_URL}
         - name: ${SOURCES_FILE_NAME}
-          url: ${PACKAGE_REGISTRY_URL}/${SOURCES_FILE_NAME}
+          url: ${SOURCES_URL}
