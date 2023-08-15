@@ -33,9 +33,9 @@ build:
     - cargo build --release
     - mkdir sources/completions -p
     - mv target/release/osu_helper_script sources/
-    - mv target/release/tab_completions/_osu_helper_script sources/zsh
-    - mv target/release/tab_completions/osu_helper_script.bash sources/bash
-    - mv target/release/tab_completions/osu_helper_script.fish sources/fish
+    - mv target/release/tab_completions/_osu_helper_script sources/completions/zsh
+    - mv target/release/tab_completions/osu_helper_script.bash sources/completions/bash
+    - mv target/release/tab_completions/osu_helper_script.fish sources/completions/fish
   cache:
     paths:
       - target/release/
