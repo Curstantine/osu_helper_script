@@ -1,7 +1,7 @@
 # Maintainer: Curstantine <resistlyfe@gmail.com>
 
 pkgname=osu_helper_script-bin
-pkgver=0.1.5
+pkgver=0.1.6
 pkgrel=1
 pkgdesc="Script to ease the process of downloading, updating, running and managing different versions of osu!"
 arch=('x86_64')
