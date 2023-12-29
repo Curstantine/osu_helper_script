@@ -9,7 +9,7 @@ url="https://gitlab.com/Curstantine/osu_helper_script"
 license=('MIT')
 depends=()
 source=("https://gitlab.com/api/v4/projects/46775775/packages/generic/osu_helper_script/${pkgver}/osu_helper_script-${pkgver}.tar.zst")
-sha256sums=('29ff616e91f63b3bda7b54c5cb52bb41b070203194d7dc1d67f38ff77ad59dd8')
+sha256sums=('edb4040c9d1d7d080cd5138a0368110a2c4b0cff107ef884736d3021090c637a')
 
 package() {
   cd "$srcdir/"
