@@ -119,7 +119,7 @@ fn create_desktop_entry(name: &str, icon_dir: &Path, exec_path: &Path, entry_pat
     if cfg!(target_os = "linux") {
         let desktop_entry_content = format!(
             "[Desktop Entry]\n\
-        Name{name}\n\
+        Name={name}\n\
         Icon={icon_dir}\n\
         Comment=rhythm is just a *click* away!\n\
         Exec={exec_dir}\n\
