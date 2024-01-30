@@ -1,0 +1,29 @@
+name: Release
+on:
+    push:
+        tags:
+            - "v*.*.*"
+
+jobs:
+    release:
+        name: Release
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v4
+            - uses: dtolnay/rust-toolchain@stable
+
+            - name: Build
+              run: cargo build --release
+
+            - name: Move tab completion files
+              run: |
+                  mkdir -p sources/completions
+                  mv target/release/osu_helper_script sources/
+                  mv target/release/tab_completions/_osu_helper_script sources/completions/zsh
+                  mv target/release/tab_completions/osu_helper_script.bash sources/completions/bash
+                  mv target/release/tab_completions/osu_helper_script.fish sources/completions/fish
+
+            - name: Create release
+              uses: softprops/action-gh-release@v1
+              with:
+                  files: sources/**/*
