@@ -19,6 +19,11 @@ jobs:
             - name: Build
               run: cargo build --release
 
+            - name: Install post-build dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y tar zstd
+
             - name: Move tab completion files
               run: |
                   mkdir -p sources/completions
@@ -27,7 +32,12 @@ jobs:
                   mv target/release/tab_completions/osu_helper_script.bash sources/completions/bash
                   mv target/release/tab_completions/osu_helper_script.fish sources/completions/fish
 
+            - name: Package source with tar
+              run: tar --zstd -cvf "sources.tar.zst" -C sources/ .
+
             - name: Create release
               uses: softprops/action-gh-release@v1
               with:
-                  files: sources/**/*
+                  files: |
+                      sources/osu_helper_script
+                      sources.tar.zst
