@@ -1,0 +1,24 @@
+# Maintainer: Curstantine <resistlyfe@gmail.com>
+
+pkgname=osu-helper-script-bin
+pkgver="v0.1.7"
+pkgrel=1
+pkgdesc="Script to download, update, and manage osu! lazer"
+arch=('x86_64')
+url="https://github.com/Curstantine/osu_helper_script"
+license=('MIT')
+depends=()
+provides="osu-helper-script"
+source=("https://github.com/Curstantine/osu_helper_script/releases/download/${pkgver}/sources.tar.zst")
+sha256sums=('ea1b2c900047a70f5c4f39722f16599ff81bb9d178de7ff786d2d024ea65220e')
+
+package() {
+  bin_name="${pkgname%-bin}"
+
+  cd "$srcdir/"
+  install -Dm755 $bin_name "${pkgdir}/usr/bin/${bin_name}"
+
+  install -Dm644 completions/bash "${pkgdir}/usr/share/bash-completion/completions/${bin_name}.bash"
+  install -Dm644 completions/fish "${pkgdir}/usr/share/fish/vendor_completions.d/${bin_name}.fish"
+  install -Dm644 completions/zsh "${pkgdir}/usr/share/zsh/site-functions/_${bin_name}"
+}

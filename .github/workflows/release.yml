@@ -27,17 +27,25 @@ jobs:
             - name: Move tab completion files
               run: |
                   mkdir -p sources/completions
-                  mv target/release/osu_helper_script sources/
-                  mv target/release/tab_completions/_osu_helper_script sources/completions/zsh
-                  mv target/release/tab_completions/osu_helper_script.bash sources/completions/bash
-                  mv target/release/tab_completions/osu_helper_script.fish sources/completions/fish
+                  mv target/release/osu-helper-script sources/
+                  mv target/release/tab_completions/_osu-helper-script sources/completions/zsh
+                  mv target/release/tab_completions/osu-helper-script.bash sources/completions/bash
+                  mv target/release/tab_completions/osu-helper-script.fish sources/completions/fish
 
-            - name: Package source with tar
+            - name: Package sources directory with tar.zst
               run: tar --zstd -cvf "sources.tar.zst" -C sources/ .
+
+            - name: Checksum values for binary and sources
+              run: |
+                  sha256sum sources.tar.zst > sha256_sources.txt
+                  sha256sum sources/osu-helper-script > sha256_osu-helper-script.txt
+                  echo "SHA256 for sources.tar.zst: $(cat sha256_sources.txt)" > BODY.txt
+                  echo "SHA256 for osu-helper-script: $(cat sha256_osu-helper-script.txt)" >> BODY.txt
 
             - name: Create release
               uses: softprops/action-gh-release@v1
               with:
+                  body_path: ./BODY.txt
                   files: |
-                      sources/osu_helper_script
+                      sources/osu-helper-script
                       sources.tar.zst
