@@ -1,6 +1,6 @@
 # osu_helper_script
 
-Script to ease the process of downloading, updating, running and managing different versions of osu!
+Script to download, update, and manage osu! lazer.
 
 Out of the box, this tool allows you to:
 
@@ -9,7 +9,7 @@ Out of the box, this tool allows you to:
 
 ## Installation
 
-> **Warning**
+> [!WARNING]
 > This is only tested on linux, and will only target linux/unix-like systems in the future.
 >
 > While it may be possible to compile and "run" on windows, it is guaranteed to break something.

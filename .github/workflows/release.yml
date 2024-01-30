@@ -37,15 +37,14 @@ jobs:
 
             - name: Checksum values for binary and sources
               run: |
-                  sha256sum sources.tar.zst > sha256_sources.txt
-                  sha256sum sources/osu-helper-script > sha256_osu-helper-script.txt
-                  echo "SHA256 for sources.tar.zst: $(cat sha256_sources.txt)" > BODY.txt
-                  echo "SHA256 for osu-helper-script: $(cat sha256_osu-helper-script.txt)" >> BODY.txt
+                  echo "## Checksum" >> BODY.md
+                  echo "SHA256 for `sources.tar.zst`: `$(sha256sum sources.tar.zst | awk '{ print $1 }')`\n" > BODY.md
+                  echo "SHA256 for `osu-helper-script`: `$(sha256sum sources/osu-helper-script | awk '{ print $1 }')"` >> BODY.md
 
             - name: Create release
               uses: softprops/action-gh-release@v1
               with:
-                  body_path: ./BODY.txt
+                  body_path: ./BODY.md
                   files: |
                       sources/osu-helper-script
                       sources.tar.zst

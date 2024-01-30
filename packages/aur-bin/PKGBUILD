@@ -10,7 +10,7 @@ license=('MIT')
 depends=()
 provides="osu-helper-script"
 source=("https://github.com/Curstantine/osu_helper_script/releases/download/${pkgver}/sources.tar.zst")
-sha256sums=('ea1b2c900047a70f5c4f39722f16599ff81bb9d178de7ff786d2d024ea65220e')
+sha256sums=('06bd83c4d6c8325a832a472a5a2fbb53fab7737364f1e9e2778aea10d07b58a2')
 
 package() {
   bin_name="${pkgname%-bin}"
