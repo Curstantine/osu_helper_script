@@ -107,9 +107,12 @@ fn set_permission_as_executable(file: &Path) -> errors::Result<()> {
     use std::fs::Permissions;
     use std::os::unix::prelude::PermissionsExt;
 
+    let path_str = file.to_string_lossy().to_string();
+    let context = format!("Failed to set permissions to file: {path_str}");
+
     fs::set_permissions(file, Permissions::from_mode(0o755)).map_err(|e| Error::Io {
         source: e,
-        context: Some(file.to_str().unwrap().to_owned()),
+        context: Some(context),
     })?;
 
     Ok(())
@@ -154,6 +157,17 @@ pub fn initialize_binary(local_data_dir: &Path, install_dir: &Path, release: &Gi
         fs::create_dir_all(install_dir).map_err(|e| Error::Io {
             source: e,
             context: Some(install_dir.to_str().unwrap().to_owned()),
+        })?;
+    }
+
+    let desktop_entries_dir = install_data
+        .desktop_entry_path
+        .parent()
+        .expect("desktop_entry_path should be a path within a directory");
+    if !desktop_entries_dir.try_exists()? {
+        fs::create_dir_all(desktop_entries_dir).map_err(|e| Error::Io {
+            source: e,
+            context: Some(desktop_entries_dir.to_string_lossy().to_string()),
         })?;
     }
 

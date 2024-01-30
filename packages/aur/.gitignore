@@ -1,2 +1,2 @@
-*.tar.zst
-
+*
+!PKGBUILD
