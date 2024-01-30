@@ -38,8 +38,8 @@ jobs:
             - name: Checksum values for binary and sources
               run: |
                   echo "## Checksum" >> BODY.md
-                  echo "SHA256 for `sources.tar.zst`: `$(sha256sum sources.tar.zst | awk '{ print $1 }')`\n" > BODY.md
-                  echo "SHA256 for `osu-helper-script`: `$(sha256sum sources/osu-helper-script | awk '{ print $1 }')"` >> BODY.md
+                  echo "SHA256 for \`sources.tar.zst\`: \`$(sha256sum sources.tar.zst | awk '{ print $1 }')\`\n" > BODY.md
+                  echo "SHA256 for \`osu-helper-script\`: \`$(sha256sum sources/osu-helper-script | awk '{ print $1 }')"\` >> BODY.md
 
             - name: Create release
               uses: softprops/action-gh-release@v1
