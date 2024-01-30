@@ -8,7 +8,7 @@ arch=('x86_64')
 url="https://github.com/Curstantine/osu_helper_script"
 license=('MIT')
 depends=()
-provides="osu-helper-script"
+provides=("osu-helper-script")
 source=("https://github.com/Curstantine/osu_helper_script/releases/download/${pkgver}/sources.tar.zst")
 sha256sums=('f5ed1b733b963d74dc68b04141054ee85191e7d77b4241e57b01332407b4451f')
 
