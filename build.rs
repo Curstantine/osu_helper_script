@@ -28,7 +28,7 @@ fn main() -> Result<(), Error> {
     let shell_types = vec![Shell::Fish, Shell::Bash, Shell::Zsh];
 
     for shell in shell_types {
-        let path = generate_to(shell, &mut cmd, "osu_helper_script", &outdir)?;
+        let path = generate_to(shell, &mut cmd, "osu-helper-script", &outdir)?;
         println!("cargo:note=completion file is generated: {path:?}");
     }
 

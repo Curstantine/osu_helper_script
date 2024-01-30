@@ -4,6 +4,10 @@ version = "0.1.7"
 edition = "2021"
 build = "build.rs"
 
+[[bin]]
+name = "osu-helper-script"
+path = "src/main.rs"
+
 [profile.release]
 lto = true
 
